@@ -507,8 +507,7 @@ const PDFSplitter: React.FC = () => {
         {/* Left Side - Upload Area & Controls */}
         <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-green-50/50 to-teal-50/50">
           <div className="p-6 sm:p-8 space-y-6">            {/* Upload Section with Current File Preview */}
-            {!pdfFile ? (
-              <UploadCard
+            {!pdfFile ? (              <UploadCard
                 isLoading={isLoading}
                 isDragOver={isDragOver}
                 onDragOver={handleDragOver}
@@ -518,10 +517,10 @@ const PDFSplitter: React.FC = () => {
                 multiple={false}
                 title="Split PDF Pages"
                 subtitle="Extract specific pages from your PDF"
-                description="Drop your PDF file here or click to browse. You can then select which pages to extract."
                 loadingText="Processing PDF..."
                 loadingSubtext="Please wait while we analyze your file"
                 supportedFormats="Single PDF file"
+                theme="green"
               />
             ) : (              <div className="border-2 border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6">
                 <div className="space-y-4">
@@ -802,11 +801,10 @@ const PDFSplitter: React.FC = () => {
                 </p>
               </div>
             </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-center py-20">
+          ) : (            <div className="flex items-center justify-center h-full text-center py-20">
               <div className="max-w-lg mx-auto">
-                <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                  <svg className="w-16 h-16 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center">
+                  <svg className="w-16 h-16 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                   </svg>
                 </div>
@@ -819,25 +817,30 @@ const PDFSplitter: React.FC = () => {
                     : 'Your file is being processed. Pages will appear here once ready.'
                   }
                 </p>
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 text-left border border-blue-100">
-                  <h5 className="font-bold text-gray-800 mb-4 text-lg">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-8 text-left border border-green-200">
+                  <h5 className="font-bold text-gray-800 mb-4 flex items-center text-lg">
+                    <span className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center mr-3">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </span>
                     How to split PDFs:
                   </h5>
-                  <div className="space-y-3 text-gray-600">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">1</div>
+                  <div className="space-y-3 text-sm text-gray-700">
+                    <div className="flex items-start">
+                      <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">1</span>
                       <span>Upload a PDF file by clicking "Choose File" or dragging it into the upload area</span>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">2</div>
+                    <div className="flex items-start">
+                      <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">2</span>
                       <span>Pages will automatically appear as thumbnails once the file is processed</span>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">3</div>
+                    <div className="flex items-start">
+                      <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">3</span>
                       <span>Select pages by clicking them or enter page ranges (e.g., 1-3, 5, 7-10)</span>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">4</div>
+                    <div className="flex items-start">
+                      <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">4</span>
                       <span>Click "Extract Pages" to download the selected pages as a new PDF</span>
                     </div>
                   </div>

@@ -385,8 +385,7 @@ const PDFRemover: React.FC = () => {
         {/* Left Side - Upload Area & Controls */}
         <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-red-50/50 to-pink-50/50">
           <div className="p-6 sm:p-8 space-y-6">            {/* Upload Section */}
-            {!pdfFile ? (
-              <UploadCard
+            {!pdfFile ? (              <UploadCard
                 isLoading={isLoading}
                 isDragOver={isDragOver}
                 onDragOver={handleDragOver}
@@ -396,10 +395,10 @@ const PDFRemover: React.FC = () => {
                 multiple={false}
                 title="Remove PDF Pages"
                 subtitle="Delete unwanted pages from your PDF"
-                description="Drop your PDF file here or click to browse. You can then select which pages to remove."
                 loadingText="Processing PDF..."
                 loadingSubtext="Please wait while we analyze your file"
                 supportedFormats="Single PDF file"
+                theme="red"
               />
             ) : (
               <label 
@@ -649,14 +648,49 @@ const PDFRemover: React.FC = () => {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
                 <p className="text-gray-600">Loading pages...</p>
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center text-gray-500">
-                <svg className="mx-auto h-16 w-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className="text-lg">Upload a PDF to get started</p>
+            </div>          ) : (
+            <div className="flex items-center justify-center h-full text-center py-16">
+              <div className="max-w-lg mx-auto">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center">
+                  <svg className="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <h4 className="text-2xl font-bold text-gray-900 mb-4">
+                  Ready to remove PDF pages
+                </h4>
+                <p className="text-gray-600 mb-8">
+                  Upload a PDF file using the upload area to view its pages and remove unwanted pages.
+                </p>
+                
+                <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-6 text-left border border-red-200">
+                  <h5 className="font-bold text-gray-800 mb-4 flex items-center">
+                    <span className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center mr-3">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </span>
+                    How to remove pages:
+                  </h5>
+                  <div className="space-y-3 text-sm text-gray-700">
+                    <div className="flex items-start">
+                      <span className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">1</span>
+                      <span>Upload a PDF file by clicking "Choose File" or dragging it into the upload area</span>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">2</span>
+                      <span>Pages will automatically appear as thumbnails once the file is processed</span>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">3</span>
+                      <span>Select pages by clicking them or enter page ranges (e.g., 1-3, 5, 7-10)</span>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">4</span>
+                      <span>Click "Remove Pages" to download the new PDF with selected pages removed</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
