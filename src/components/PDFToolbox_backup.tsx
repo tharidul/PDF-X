@@ -27,9 +27,7 @@ const PDFToolbox: React.FC = () => {
                   <p className="text-sm text-gray-500">Professional PDF Tools</p>
                 </div>
               </div>
-            </div>
-
-            {/* Mode Toggle - Centered */}
+            </div>            {/* Mode Toggle - Centered */}
             <div className="flex-1 flex justify-center">
               <div className="inline-flex bg-gray-100/70 backdrop-blur-sm rounded-2xl p-1.5 shadow-lg border border-gray-200/50">
                 <button
@@ -75,6 +73,21 @@ const PDFToolbox: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                     <span>Remove</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+                  className={`px-8 py-3 rounded-xl font-semibold transition-all duration-300 ease-out ${
+                    activeMode === 'split' 
+                      ? 'bg-white text-blue-600 shadow-lg shadow-blue-500/20 transform scale-105 border border-blue-100' 
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                  }`}
+                >
+                  <span className="flex items-center space-x-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    <span>Split PDF</span>
                   </span>
                 </button>
               </div>
@@ -132,7 +145,7 @@ const PDFToolbox: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ) : activeMode === 'split' ? (
+            ) : (
               <div className="space-y-4">
                 <h2 className="text-4xl font-bold text-gray-800">
                   Split PDF into Pages
@@ -161,42 +174,13 @@ const PDFToolbox: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <h2 className="text-4xl font-bold text-gray-800">
-                  Remove Pages from PDF
-                </h2>
-                <p className="text-xl text-gray-600 leading-relaxed">
-                  Delete unwanted pages from your PDF documents. Select specific pages or page ranges to remove them and create a cleaner, more focused document.
-                </p>
-                <div className="flex justify-center items-center space-x-8 mt-6">
-                  <div className="flex items-center space-x-2 text-gray-600">
-                    <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <span>Visual page selection</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-gray-600">
-                    <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <span>Page range support</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-gray-600">
-                    <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <span>Preview thumbnails</span>
-                  </div>
-                </div>
-              </div>
             )}
           </div>
         </div>
 
         {/* Content - Full Width */}
         <div className="w-full">
-          {activeMode === 'merge' ? <PDFMerger /> : activeMode === 'split' ? <PDFSplitter /> : <PDFRemover />}
+          {activeMode === 'merge' ? <PDFMerger /> : <PDFSplitter />}
         </div>
       </main>
 

@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
+import toast from 'react-hot-toast';
 
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up PDF.js worker with local file
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 interface PDFFile {
   file: File;
@@ -22,11 +23,11 @@ interface PageInfo {
 const PDFSplitter: React.FC = () => {
   const [pdfFile, setPdfFile] = useState<PDFFile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [pageRange, setPageRange] = useState('');
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
+  const [thumbnailErrors, setThumbnailErrors] = useState<{[page: number]: string}>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -70,11 +71,16 @@ const PDFSplitter: React.FC = () => {
       return 0;
     }
   };
-
   const generatePageThumbnail = async (file: File, pageNumber: number): Promise<string> => {
     try {
+      console.log(`Generating thumbnail for page ${pageNumber}`);
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      const loadingTask = pdfjsLib.getDocument({ 
+        data: arrayBuffer,
+        verbosity: 0 // Reduce console noise
+      });
+      const pdf = await loadingTask.promise;
       const page = await pdf.getPage(pageNumber);
       
       const viewport = page.getViewport({ scale: 1.0 });
@@ -85,74 +91,135 @@ const PDFSplitter: React.FC = () => {
         throw new Error('Could not get canvas context');
       }
       
-      // Set canvas size based on PDF page dimensions
-      const scale = Math.min(200 / viewport.width, 260 / viewport.height);
+      // Calculate scale to make thumbnails larger and clearer like ilovepdf
+      const targetWidth = 200;
+      const targetHeight = 280;
+      const scale = Math.min(targetWidth / viewport.width, targetHeight / viewport.height);
       const scaledViewport = page.getViewport({ scale });
       
       canvas.width = scaledViewport.width;
       canvas.height = scaledViewport.height;
+      
+      // Fill canvas with white background first
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
       
       const renderContext = {
         canvasContext: context,
         viewport: scaledViewport,
       };
       
-      await page.render(renderContext).promise;
-      return canvas.toDataURL();
-    } catch (error) {
-      console.error('Error generating page thumbnail:', error);
-      // Fallback to placeholder
+      // Render the actual PDF page content
+      const renderTask = page.render(renderContext);
+      await renderTask.promise;
+      
+      console.log(`Successfully generated thumbnail for page ${pageNumber}`);
+      return canvas.toDataURL('image/png', 0.8);
+    } catch (error: any) {
+      console.error(`Error generating page thumbnail for page ${pageNumber}:`, error);
+      setThumbnailErrors(prev => ({ ...prev, [pageNumber]: error?.message || 'Unknown error' }));
+      
+      // Only return placeholder if PDF rendering completely fails
       return new Promise((resolve) => {
         const canvas = document.createElement('canvas');
         canvas.width = 200;
-        canvas.height = 260;
+        canvas.height = 280;
         const ctx = canvas.getContext('2d');
         
         if (ctx) {
           // Draw page background
           ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, 200, 260);
+          ctx.fillRect(0, 0, 200, 280);
           
           // Draw border
           ctx.strokeStyle = '#e5e7eb';
           ctx.lineWidth = 2;
-          ctx.strokeRect(0, 0, 200, 260);
+          ctx.strokeRect(1, 1, 198, 278);
           
           // Draw page number
           ctx.fillStyle = '#374151';
-          ctx.font = 'bold 24px Arial';
+          ctx.font = 'bold 16px Arial';
           ctx.textAlign = 'center';
-          ctx.fillText(`Page ${pageNumber}`, 100, 130);
-          
-          // Draw page lines simulation
-          ctx.strokeStyle = '#f3f4f6';
-          ctx.lineWidth = 1;
-          for (let i = 50; i < 200; i += 20) {
-            ctx.beginPath();
-            ctx.moveTo(20, i);
-            ctx.lineTo(180, i);
-            ctx.stroke();
-          }
+          ctx.fillText(`Page ${pageNumber}`, 100, 120);
+          ctx.font = '12px Arial';
+          ctx.fillText('Preview unavailable', 100, 150);
         }
         
         resolve(canvas.toDataURL());
       });
     }
-  };
-
-  const generatePages = async (file: File, pageCount: number) => {
+  };  const generatePages = async (file: File, pageCount: number) => {
+    console.log(`Starting to generate thumbnails for ${pageCount} pages`);
     const pageList: PageInfo[] = [];
-    for (let i = 1; i <= pageCount; i++) {
-      const thumbnail = await generatePageThumbnail(file, i);
+      // Only generate thumbnails for first 100 pages for performance
+    const maxThumbnails = 100;
+    const thumbnailCount = Math.min(pageCount, maxThumbnails);
+      console.log(`Generating thumbnails for first ${thumbnailCount} pages${pageCount > maxThumbnails ? ` (pages ${maxThumbnails + 1}-${pageCount} will be shown as one summary card)` : ''}`);
+    
+    // Add pages 1-100 (or less if PDF has fewer pages)
+    for (let i = 1; i <= thumbnailCount; i++) {
       pageList.push({
         pageNumber: i,
-        thumbnail
+        thumbnail: undefined
       });
     }
-    setPages(pageList);
-  };
-  const processFile = async (file: File) => {
-    setError(null);
+      // If there are more than 100 pages, add ONE summary card for the rest
+    if (pageCount > maxThumbnails) {
+      pageList.push({
+        pageNumber: -1, // Special marker for summary card
+        thumbnail: 'SUMMARY_CARD' // Special marker
+      });
+    }
+    
+    // Set initial state with pages
+    setPages([...pageList]);
+    
+    // Generate thumbnails only for first 100 pages
+    const batchSize = 3;
+    for (let i = 0; i < thumbnailCount; i += batchSize) {
+      const batch = [];
+      for (let j = i; j < Math.min(i + batchSize, thumbnailCount); j++) {
+        const pageNumber = j + 1;
+        batch.push(
+          generatePageThumbnail(file, pageNumber).then(thumbnail => ({
+            pageNumber,
+            thumbnail
+          })).catch(error => {
+            console.error(`Failed to generate thumbnail for page ${pageNumber}:`, error);
+            return {
+              pageNumber,
+              thumbnail: undefined
+            };
+          })
+        );
+      }
+      
+      const batchResults = await Promise.all(batch);
+      
+      // Update thumbnails in the existing pageList
+      batchResults.forEach(result => {
+        const index = pageList.findIndex(p => p.pageNumber === result.pageNumber);
+        if (index !== -1) {
+          pageList[index] = result;
+        }
+      });
+      
+      // Update pages incrementally so user sees progress
+      setPages([...pageList]);
+    }
+    
+    console.log(`Completed generating ${thumbnailCount} page thumbnails out of ${pageCount} total pages`);
+  };  const processFile = async (file: File) => {
+    // Check file size limit (100MB)
+    const maxFileSize = 100 * 1024 * 1024; // 100MB in bytes
+    if (file.size > maxFileSize) {
+      toast.error(`File size (${formatFileSize(file.size)}) exceeds the 100MB limit. Please use a smaller PDF file.`);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
     setIsLoading(true);
 
     if (file.type === 'application/pdf') {
@@ -168,10 +235,13 @@ const PDFSplitter: React.FC = () => {
       
       // Automatically load pages for the uploaded file
       if (pageCount > 0) {
+        toast.success(`PDF loaded successfully! ${pageCount} pages found.`);
         await generatePages(file, pageCount);
+      } else {
+        toast.error('Could not read PDF pages. Please check if the file is valid.');
       }
     } else {
-      setError(`File "${file.name}" is not a PDF. Only PDF files are allowed.`);
+      toast.error(`"${file.name}" is not a PDF. Only PDF files are allowed.`);
     }
 
     setIsLoading(false);
@@ -207,16 +277,14 @@ const PDFSplitter: React.FC = () => {
     if (files.length > 0) {
       await processFile(files[0]); // Only process the first file
     }
-  };
-  const removeFile = () => {
+  };  const removeFile = () => {
     setPdfFile(null);
-    setError(null);
     setPageRange('');
     setSelectedPages([]);
     setPages([]);
-  };
-
-  const handlePageClick = (pageNumber: number) => {
+    toast.success('File removed successfully');
+  };const handlePageClick = (pageNumber: number) => {
+    // Normal page selection (summary card is not clickable)
     setSelectedPages(prev => {
       const newSelected = prev.includes(pageNumber)
         ? prev.filter(p => p !== pageNumber)
@@ -265,42 +333,129 @@ const PDFSplitter: React.FC = () => {
     const parsedPages = parsePageRange(range);
     const validPages = parsedPages.filter(p => p >= 1 && p <= (pdfFile?.pageCount || 0));
     setSelectedPages(validPages);
-  };
-
-  const splitPDF = async (range: string) => {
+  };  const splitPDF = async (range: string) => {
     if (!pdfFile) {
-      setError('No file selected.');
+      toast.error('No file selected.');
       return;
     }
 
     const pagesToExtract = parsePageRange(range);
     if (pagesToExtract.length === 0) {
-      setError('Please specify valid page numbers.');
+      toast.error('Please specify valid page numbers.');
       return;
     }
 
     const maxPages = pdfFile.pageCount || 0;
     const invalidPages = pagesToExtract.filter(page => page < 1 || page > maxPages);
     if (invalidPages.length > 0) {
-      setError(`Invalid page numbers: ${invalidPages.join(', ')}. This PDF has ${maxPages} pages.`);
+      toast.error(`Invalid page numbers: ${invalidPages.join(', ')}. This PDF has ${maxPages} pages.`);
       return;
-    }
+    }// Check if we're dealing with a large extraction
+    const isLargeExtraction = pagesToExtract.length > 500;
+    const isLargeFile = pdfFile.file.size > 75 * 1024 * 1024; // 75MB (warn for files close to limit)
 
-    setIsLoading(true);
-    setError(null);
+    if (isLargeExtraction && isLargeFile) {
+      const confirmed = window.confirm(
+        `You're extracting ${pagesToExtract.length} pages from a ${formatFileSize(pdfFile.file.size)} file. This may take several minutes and use significant memory. Continue?`
+      );
+      if (!confirmed) return;
+    }    setIsLoading(true);
 
+    // Show loading toast
+    const loadingToast = toast.loading('Processing PDF split...');
+
+    let arrayBuffer: ArrayBuffer | null = null;
+    
     try {
-      const arrayBuffer = await pdfFile.file.arrayBuffer();
+      console.log(`Starting PDF split: ${pagesToExtract.length} pages from ${formatFileSize(pdfFile.file.size)} file`);
+      
+      // Try to read the file with retry logic
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          console.log(`Reading file attempt ${retryCount + 1}/${maxRetries}`);
+          arrayBuffer = await pdfFile.file.arrayBuffer();
+          console.log('File loaded into memory successfully');
+          break;
+        } catch (readError: any) {
+          retryCount++;
+          console.warn(`File read attempt ${retryCount} failed:`, readError);
+            if (retryCount >= maxRetries) {
+            throw new Error('Failed to read file after multiple attempts. The file may be too large or corrupted.');
+          }
+          
+          // Update loading toast with retry info
+          toast.loading(`Reading file... (attempt ${retryCount + 1}/${maxRetries})`, { id: loadingToast });
+          
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }      if (!arrayBuffer) {
+        throw new Error('Failed to load file into memory');
+      }
+      
+      toast.loading('Parsing PDF...', { id: loadingToast });
       const originalPdf = await PDFDocument.load(arrayBuffer);
+      console.log('PDF parsed successfully');
+      
       const newPdf = await PDFDocument.create();
+      console.log('New PDF document created');
 
       // Extract specified pages (convert to 0-based index)
       const pageIndices = pagesToExtract.map(page => page - 1);
-      const copiedPages = await newPdf.copyPages(originalPdf, pageIndices);
       
-      copiedPages.forEach((page) => newPdf.addPage(page));
+      // For large extractions, process pages in smaller batches to avoid memory issues
+      if (isLargeExtraction || isLargeFile) {
+        const batchSize = isLargeFile && isLargeExtraction ? 50 : 100; // Smaller batches for very large files
+        console.log(`Processing ${pageIndices.length} pages in batches of ${batchSize}`);
+        
+        for (let i = 0; i < pageIndices.length; i += batchSize) {
+          const batchIndices = pageIndices.slice(i, i + batchSize);
+          const batchNum = Math.floor(i / batchSize) + 1;
+          const totalBatches = Math.ceil(pageIndices.length / batchSize);
+            console.log(`Processing batch ${batchNum}/${totalBatches}: pages ${batchIndices[0] + 1}-${batchIndices[batchIndices.length - 1] + 1}`);
+          
+          // Update loading toast with progress
+          toast.loading(`Processing pages... (${batchNum}/${totalBatches})`, { id: loadingToast });
+          
+          try {
+            const copiedPages = await newPdf.copyPages(originalPdf, batchIndices);
+            copiedPages.forEach((page) => newPdf.addPage(page));
+              // Force garbage collection hint and longer delay for large files
+            if (isLargeFile && (window as any).gc) {
+              (window as any).gc();
+            }
+            
+            // Longer delay between batches for large files to prevent memory pressure
+            if (i + batchSize < pageIndices.length) {
+              await new Promise(resolve => setTimeout(resolve, isLargeFile ? 100 : 10));
+            }
+          } catch (batchError: any) {
+            console.error(`Error in batch ${batchNum}:`, batchError);
+            throw new Error(`Failed to process pages ${batchIndices[0] + 1}-${batchIndices[batchIndices.length - 1] + 1}. ${batchError.message}`);
+          }
+        }      } else {
+        // For smaller extractions, process all at once
+        console.log('Processing all pages at once');
+        toast.loading('Copying pages...', { id: loadingToast });
+        const copiedPages = await newPdf.copyPages(originalPdf, pageIndices);
+        copiedPages.forEach((page) => newPdf.addPage(page));
+      }
 
-      const pdfBytes = await newPdf.save();
+      console.log('Pages copied successfully, saving PDF...');
+      toast.loading('Saving PDF...', { id: loadingToast });
+      
+      // For large files, use different save options
+      const saveOptions = isLargeFile ? { 
+        useObjectStreams: false, // Reduces memory usage but increases file size slightly
+        addDefaultPage: false 
+      } : {};
+      
+      const pdfBytes = await newPdf.save(saveOptions);
+      console.log(`PDF saved successfully: ${formatFileSize(pdfBytes.length)}`);
+      
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
 
@@ -312,32 +467,45 @@ const PDFSplitter: React.FC = () => {
       document.body.removeChild(link);
 
       URL.revokeObjectURL(url);
+        // Clear the array buffer to free memory
+      arrayBuffer = null;
       
-    } catch (err) {
+      console.log('PDF split completed successfully');
+      
+      // Success toast
+      toast.success(`Successfully extracted ${pagesToExtract.length} pages! File downloaded.`, { id: loadingToast });
+      
+    } catch (err: any) {
       console.error('Error splitting PDF:', err);
-      setError('Failed to split PDF. Please ensure the file is a valid PDF document.');
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to split PDF. ';
+      
+      if (err.message?.includes('NotReadableError') || err.message?.includes('not be read') || err.message?.includes('permission')) {
+        errorMessage += 'The file could not be read. This may happen with very large files. Try refreshing the page and uploading the file again, or try extracting fewer pages.';
+      } else if (err.message?.includes('Invalid PDF')) {
+        errorMessage += 'The file appears to be corrupted or not a valid PDF.';
+      } else if (err.message?.includes('memory') || err.message?.includes('Memory')) {
+        errorMessage += 'Not enough memory to process this large file. Try selecting fewer pages (less than 200) or restart your browser.';
+      } else if (err.message?.includes('timeout') || err.message?.includes('Timeout')) {
+        errorMessage += 'The operation timed out. This file might be too large or complex to process.';
+      } else if (isLargeExtraction && isLargeFile) {
+        errorMessage += 'The file is too large for this operation. Try extracting fewer pages (less than 200) or break the extraction into smaller chunks.';
+      } else if (err.message?.includes('Failed to read file')) {
+        errorMessage += 'Could not read the file after multiple attempts. Try refreshing the page and uploading the file again.';      } else {
+        errorMessage += err.message || 'Please ensure the file is a valid PDF document and try again.';
+      }
+      
+      toast.error(errorMessage, { id: loadingToast });
     } finally {
       setIsLoading(false);
+      // Clear memory references
+      arrayBuffer = null;
     }
   };
 
   return (
     <div className="bg-white rounded-3xl shadow-2xl shadow-blue-500/10 border border-gray-200/50 backdrop-blur-sm">
-      {/* Error Display */}
-      {error && (
-        <div className="mb-6 mx-6 sm:mx-8 mt-6 sm:mt-8 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
-          <div className="flex items-center">
-            <svg className="h-6 w-6 text-red-400 mr-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <h3 className="text-red-800 font-medium">Error</h3>
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main Content - Full Width Horizontal Layout */}
       <div className="flex flex-col xl:flex-row min-h-[600px]">
         {/* Left Side - Upload Area & Controls */}
@@ -419,9 +587,8 @@ const PDFSplitter: React.FC = () => {
                   <label htmlFor="pdf-upload" className="cursor-pointer block group">
                     <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform group-hover:scale-105 shadow-lg">
                       Choose File
-                    </div>
-                    <p className="text-sm text-gray-500 mt-4">
-                      Single PDF file to split • Drag & drop enabled
+                    </div>                    <p className="text-sm text-gray-500 mt-4">
+                      Single PDF file to split • Max 100MB • Drag & drop enabled
                     </p>
                   </label>
                   <input
@@ -444,8 +611,7 @@ const PDFSplitter: React.FC = () => {
                   Split Pages
                 </h4>
 
-                {/* Page Range Input */}
-                <div className="mb-6">
+                {/* Page Range Input */}                <div className="mb-6">
                   <label htmlFor="page-range" className="block text-sm font-semibold text-gray-700 mb-3">
                     Page Range
                   </label>
@@ -457,11 +623,46 @@ const PDFSplitter: React.FC = () => {
                     placeholder="e.g., 1-3, 5, 7-10"
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   />
-                  {selectedPages.length > 0 && (
-                    <p className="text-sm text-blue-600 mt-2 font-medium">
-                      {selectedPages.length} page{selectedPages.length !== 1 ? 's' : ''} selected
-                    </p>
-                  )}
+                  <div className="mt-3 space-y-2">
+                    {selectedPages.length > 0 && (
+                      <div>
+                        <p className="text-sm text-blue-600 font-medium">
+                          {selectedPages.length} page{selectedPages.length !== 1 ? 's' : ''} selected
+                        </p>                        {/* Warning for large extractions */}
+                        {selectedPages.length > 200 && (
+                          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div className="flex items-start">
+                              <svg className="w-4 h-4 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                              <span className="text-xs text-yellow-800">
+                                <strong>Large extraction:</strong> Extracting {selectedPages.length} pages may take several minutes and use significant memory.
+                              </span>
+                            </div>
+                          </div>
+                        )}                        {/* Warning for large files */}
+                        {pdfFile && pdfFile.file.size > 75 * 1024 * 1024 && selectedPages.length > 50 && (
+                          <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                            <div className="flex items-start">
+                              <svg className="w-4 h-4 text-orange-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-xs text-orange-800">
+                                <strong>Large file + many pages:</strong> This combination may cause memory issues. Consider extracting fewer pages (under 200) at a time.
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <p><strong>How to use:</strong></p>
+                      <p>• Single pages: <span className="font-mono bg-gray-100 px-1 rounded">1, 5, 10</span></p>
+                      <p>• Page ranges: <span className="font-mono bg-gray-100 px-1 rounded">1-5, 10-15</span></p>
+                      <p>• Mixed: <span className="font-mono bg-gray-100 px-1 rounded">1-3, 7, 10-12</span></p>
+                      <p>• Or simply click pages above to select them</p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Split Button */}
@@ -497,11 +698,10 @@ const PDFSplitter: React.FC = () => {
         </div>        {/* Right Side - Pages Grid - Full Width */}
         <div className="flex-1 p-6 sm:p-8 bg-gray-50/30">
           {pdfFile && pages.length > 0 ? (
-            <div className="h-full">
-              <div className="flex items-center justify-between mb-8">
+            <div className="h-full">              <div className="flex items-center justify-between mb-8">
                 <div>
                   <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                    Select Pages ({pages.length} total)
+                    Select Pages ({pdfFile?.pageCount || 0} total pages)
                   </h3>
                   <p className="text-gray-600">
                     Click pages to select them for extraction
@@ -510,54 +710,98 @@ const PDFSplitter: React.FC = () => {
                     )}
                   </p>
                 </div>
-              </div>
-              
-              {/* Pages Grid - Optimized for full width */}
-              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12 gap-4">
-                {pages.map((page) => (
-                  <div 
-                    key={page.pageNumber}
-                    onClick={() => handlePageClick(page.pageNumber)}
-                    className={`group relative border-2 rounded-2xl p-3 transition-all duration-200 cursor-pointer ${
-                      selectedPages.includes(page.pageNumber)
-                        ? 'border-blue-500 bg-blue-50 shadow-xl transform scale-105'
-                        : 'border-gray-200 hover:border-blue-300 hover:shadow-lg bg-white'
-                    }`}
+                {selectedPages.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSelectedPages([]);
+                      setPageRange('');
+                    }}
+                    className="px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium flex items-center gap-2"
                   >
-                    {/* Selection Badge */}
-                    {selectedPages.includes(page.pageNumber) && (
-                      <div className="absolute -top-2 -right-2 w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
-                        ✓
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Clear Selection
+                  </button>
+                )}
+              </div>
+                {/* Pages Grid - Optimized for full width with ilovepdf-style layout */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6">
+                {pages.map((page) => (                  <div 
+                    key={page.pageNumber === -1 ? 'summary' : page.pageNumber}
+                    onClick={() => page.pageNumber !== -1 && handlePageClick(page.pageNumber)}
+                    className={`group relative rounded-2xl transition-all duration-200 ${
+                      page.pageNumber === -1 
+                        ? 'cursor-default' // Summary card is not clickable
+                        : `cursor-pointer hover:shadow-xl ${
+                            selectedPages.includes(page.pageNumber)
+                            ? 'ring-4 ring-green-400 ring-opacity-75 shadow-xl'
+                            : 'hover:shadow-lg'
+                          }`
+                    }`}
+                  >                    {/* Selection Checkbox - Top Right */}
+                    {page.pageNumber !== -1 && (
+                      <div className="absolute -top-2 -right-2 z-20">
+                        <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shadow-lg transition-all ${
+                          selectedPages.includes(page.pageNumber)
+                            ? 'bg-green-500 border-green-500 text-white'
+                            : 'bg-white border-gray-300 hover:border-green-400'
+                        }`}>
+                          {selectedPages.includes(page.pageNumber) && (
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                    )}{/* Page Number Badge - Top Left */}
+                    {page.pageNumber !== -1 && (
+                      <div className="absolute -top-2 -left-2 w-8 h-8 bg-gray-700 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
+                        {page.pageNumber}
                       </div>
                     )}
                     
-                    {/* Page Number Badge */}
-                    <div className="absolute -top-2 -left-2 w-8 h-6 bg-gray-700 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg z-10">
-                      {page.pageNumber}
-                    </div>
-                    
-                    {/* Page Thumbnail */}
-                    <div className="aspect-[3/4] rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-sm">
-                      {page.thumbnail ? (
-                        <img 
-                          src={page.thumbnail} 
-                          alt={`Page ${page.pageNumber}`}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
+                    {/* Page Thumbnail Container */}
+                    <div className="relative bg-white rounded-2xl border-2 border-gray-200 overflow-hidden shadow-sm">                      <div className="aspect-[3/4] flex items-center justify-center">
+                        {page.thumbnail === 'SUMMARY_CARD' ? (
+                          // Summary card for remaining pages
+                          <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 flex flex-col items-center justify-center p-4">                            <div className="w-16 h-16 bg-blue-500 text-white rounded-full flex items-center justify-center mb-3 shadow-md">
+                              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div><span className="text-sm font-bold text-blue-800 text-center">
+                              {(pdfFile?.pageCount || 0) - 100} More Pages
+                            </span>                            <span className="text-xs text-blue-600 text-center mt-1">
+                              Pages 101-{pdfFile?.pageCount || 0}
+                            </span>
+                          </div>
+                        ) : page.thumbnail && page.thumbnail !== 'NO_THUMBNAIL' ? (
+                          <img 
+                            src={page.thumbnail} 
+                            alt={`Page ${page.pageNumber}`}
+                            className="w-full h-full object-contain bg-white"
+                          />
+                        ) : (
+                          // Loading state for pages 1-50
+                          <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center">
+                            <svg className="w-12 h-12 text-gray-300 mb-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span className="text-xs text-gray-400">Loading...</span>
+                            {thumbnailErrors[page.pageNumber] && (
+                              <span className="text-xs text-red-400 mt-1">{thumbnailErrors[page.pageNumber]}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                        {/* Page Number Label at Bottom */}
+                      {page.pageNumber !== -1 && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2">
+                          <span className="text-white text-xs font-medium">
+                            Page {page.pageNumber}
+                          </span>
                         </div>
                       )}
-                    </div>
-                    
-                    {/* Page Number Label */}
-                    <div className="text-center mt-3">
-                      <span className="text-xs font-medium text-gray-600">
-                        Page {page.pageNumber}
-                      </span>
                     </div>
                   </div>
                 ))}

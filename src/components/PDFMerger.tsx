@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
+import toast from 'react-hot-toast';
 
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up PDF.js worker with local file
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 interface PDFFile {
   file: File;
@@ -17,7 +18,6 @@ interface PDFFile {
 const PDFMerger: React.FC = () => {
   const [pdfFiles, setPdfFiles] = useState<PDFFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -120,32 +120,54 @@ const PDFMerger: React.FC = () => {
       }
     });
   };
-
   const processFiles = async (files: FileList | File[]) => {
-    setError(null);
     setIsLoading(true);
     const newPdfFiles: PDFFile[] = [];
     const fileArray = Array.from(files);
+    
+    // Check file size limit (100MB)
+    const maxFileSize = 100 * 1024 * 1024; // 100MB in bytes
+    const oversizedFiles = fileArray.filter(file => file.size > maxFileSize);
+    
+    if (oversizedFiles.length > 0) {
+      toast.error(`File size limit exceeded (100MB). Large files: ${oversizedFiles.map(f => f.name).join(', ')}`);
+      setIsLoading(false);
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
 
     for (const file of fileArray) {
       if (file.type === 'application/pdf') {
-        const pageCount = await getPageCount(file);
-        const thumbnail = await generateThumbnail(file);
-        const pdfFile: PDFFile = {
-          file,
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          name: file.name,
-          size: formatFileSize(file.size),
-          pageCount,
-          thumbnail
-        };
-        newPdfFiles.push(pdfFile);
+        try {
+          const pageCount = await getPageCount(file);
+          const thumbnail = await generateThumbnail(file);
+          const pdfFile: PDFFile = {
+            file,
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name: file.name,
+            size: formatFileSize(file.size),
+            pageCount,
+            thumbnail
+          };
+          newPdfFiles.push(pdfFile);
+          successCount++;
+        } catch (error) {
+          toast.error(`Failed to process "${file.name}". File may be corrupted.`);
+          errorCount++;
+        }
       } else {
-        setError(`File "${file.name}" is not a PDF. Only PDF files are allowed.`);
+        toast.error(`"${file.name}" is not a PDF file. Only PDF files are allowed.`);
+        errorCount++;
       }
     }
 
-    setPdfFiles(prev => [...prev, ...newPdfFiles]);
+    if (successCount > 0) {
+      setPdfFiles(prev => [...prev, ...newPdfFiles]);
+      toast.success(`Successfully uploaded ${successCount} PDF file${successCount > 1 ? 's' : ''}`);
+    }
+
     setIsLoading(false);
     
     if (fileInputRef.current) {
@@ -181,15 +203,14 @@ const PDFMerger: React.FC = () => {
       await processFiles(files);
     }
   };
-
   const removeFile = (id: string) => {
     setPdfFiles(prev => prev.filter(file => file.id !== id));
-    setError(null);
+    toast.success('File removed successfully');
   };
 
   const clearAllFiles = () => {
     setPdfFiles([]);
-    setError(null);
+    toast.success('All files cleared');
   };
 
   const moveFile = (fromIndex: number, toIndex: number) => {
@@ -232,15 +253,14 @@ const PDFMerger: React.FC = () => {
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
-
   const mergePDFs = async () => {
     if (pdfFiles.length < 2) {
-      setError('Please upload at least 2 PDF files to merge.');
+      toast.error('Please upload at least 2 PDF files to merge.');
       return;
     }
 
     setIsLoading(true);
-    setError(null);
+    const loadingToast = toast.loading('Merging PDFs...');
 
     try {
       const mergedPdf = await PDFDocument.create();
@@ -265,131 +285,151 @@ const PDFMerger: React.FC = () => {
 
       URL.revokeObjectURL(url);
       
+      toast.success('PDFs merged successfully! Download started.', { id: loadingToast });
+      
     } catch (err) {
       console.error('Error merging PDFs:', err);
-      setError('Failed to merge PDFs. Please ensure all files are valid PDF documents.');
+      toast.error('Failed to merge PDFs. Please ensure all files are valid PDF documents.', { id: loadingToast });
     } finally {
       setIsLoading(false);
     }
-  };
-  return (
+  };  return (
     <div className="bg-white rounded-3xl shadow-2xl shadow-blue-500/10 border border-gray-200/50 backdrop-blur-sm">
-      {/* Error Display */}
-      {error && (
-        <div className="mb-6 mx-6 sm:mx-8 mt-6 sm:mt-8 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
-          <div className="flex items-center">
-            <svg className="h-6 w-6 text-red-400 mr-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <h3 className="text-red-800 font-medium">Error</h3>
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main Content - Full Width Horizontal Layout */}
-      <div className="flex flex-col xl:flex-row min-h-[600px]">
-        {/* Left Side - Upload Area & Controls */}
-        <div className="w-full xl:w-96 flex-shrink-0 p-6 sm:p-8 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
-          <div 
-            className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 h-full flex flex-col justify-center ${
-              isDragOver 
-                ? 'border-blue-500 bg-blue-50 scale-102 shadow-lg' 
-                : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50/50'
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            {isLoading ? (
-              <div className="flex flex-col items-center">
-                <svg className="animate-spin h-16 w-16 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p className="text-lg font-medium text-blue-600">Processing files...</p>
-                <p className="text-gray-500">Please wait while we analyze your PDFs</p>
-              </div>
-            ) : (
-              <>
-                <div className="mb-6">
-                  <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <div className="flex flex-col xl:flex-row min-h-[600px]">{/* Left Side - Upload Area & Controls */}
+        <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
+          <div className="p-6 sm:p-8 space-y-6">
+            
+            {/* Upload Section */}
+            <div 
+              className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
+                isDragOver 
+                  ? 'border-blue-500 bg-blue-50 scale-102 shadow-lg' 
+                  : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50/50'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              {isLoading ? (
+                <div className="flex flex-col items-center">
+                  <svg className="animate-spin h-20 w-20 text-blue-600 mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
+                  <p className="text-xl font-semibold text-blue-600">Processing PDFs...</p>
+                  <p className="text-gray-500 mt-2">Please wait while we analyze your files</p>
                 </div>
-                <label htmlFor="pdf-upload" className="cursor-pointer block">
-                  <span className="text-xl font-semibold text-blue-600 hover:text-blue-700 transition-colors">
-                    Upload PDF
-                  </span>
-                  <p className="text-gray-500 mt-2">Drop files here or click to browse</p>
-                  <p className="text-sm text-gray-400 mt-4">
-                    Multiple files supported
-                  </p>
-                </label>
-                <input
-                  ref={fileInputRef}
-                  id="pdf-upload"
-                  type="file"
-                  multiple
-                  accept=".pdf,application/pdf"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                
-                {/* Merge Button */}
-                {pdfFiles.length > 0 && (
-                  <div className="mt-8 pt-6 border-t border-gray-200">
-                    <button
-                      onClick={mergePDFs}
-                      disabled={isLoading || pdfFiles.length < 2}
-                      className={`w-full px-6 py-3 rounded-xl font-bold text-lg transition-all duration-200 ${
-                        isLoading || pdfFiles.length < 2
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 shadow-xl'
-                      }`}
-                    >
-                      {isLoading ? (
-                        <div className="flex items-center justify-center">
-                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Merging...
-                        </div>
-                      ) : (
-                        <span className="flex items-center justify-center">
-                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          Merge {pdfFiles.length > 1 ? `${pdfFiles.length} PDFs` : 'PDF'}
-                        </span>
-                      )}
-                    </button>
-                    
-                    {pdfFiles.length < 2 && pdfFiles.length > 0 && (
-                      <p className="text-gray-500 mt-2 text-sm text-center">
-                        Add at least one more PDF to merge
-                      </p>
-                    )}
+              ) : (
+                <div className="space-y-6">
+                  <div className="mb-8">
+                    <svg className="mx-auto h-20 w-20 text-blue-400 mb-6" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-3">Upload PDF Files</h3>
+                    <p className="text-gray-600 text-lg leading-relaxed">
+                      Drop multiple PDF files here or click to browse
+                    </p>
                   </div>
+                    <label htmlFor="pdf-upload" className="cursor-pointer block group">
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform group-hover:scale-105 shadow-lg">
+                      Choose Files
+                    </div>
+                    <p className="text-sm text-gray-500 mt-4">
+                      Multiple PDF files • Drag & drop enabled • Max 100MB per file
+                    </p>
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    id="pdf-upload"
+                    type="file"
+                    multiple
+                    accept=".pdf,application/pdf"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Merge Controls */}
+            {pdfFiles.length > 0 && (
+              <div className="border-2 border-blue-200 rounded-2xl p-6 bg-gradient-to-br from-blue-50 to-indigo-50">
+                <h4 className="font-bold text-blue-800 mb-4 flex items-center text-lg">
+                  <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  Merge PDFs
+                </h4>
+
+                <div className="mb-4">
+                  <p className="text-sm text-gray-700 mb-2">
+                    <strong>{pdfFiles.length}</strong> file{pdfFiles.length !== 1 ? 's' : ''} ready to merge
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Total pages: {pdfFiles.reduce((total, pdf) => total + (pdf.pageCount || 0), 0)}
+                  </p>
+                  {pdfFiles.length > 1 && (
+                    <p className="text-xs text-blue-600 mt-2">
+                      💡 Drag files in the grid to reorder them
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={mergePDFs}
+                  disabled={isLoading || pdfFiles.length < 2}
+                  className={`w-full px-6 py-4 rounded-xl font-bold text-lg transition-all duration-200 ${
+                    isLoading || pdfFiles.length < 2
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 transform hover:scale-105 shadow-xl'
+                  }`}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Merging...
+                    </div>
+                  ) : (
+                    <span className="flex items-center justify-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Merge {pdfFiles.length} PDF{pdfFiles.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </button>
+                
+                {pdfFiles.length === 1 && (
+                  <p className="text-gray-500 mt-3 text-sm text-center">
+                    Add at least one more PDF to merge
+                  </p>
                 )}
-              </>
+
+                {pdfFiles.length > 0 && (
+                  <button
+                    onClick={clearAllFiles}
+                    className="w-full mt-3 px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                  >
+                    Clear All Files
+                  </button>
+                )}
+              </div>
             )}
           </div>
-        </div>
-
-        {/* Right Side - PDF Grid */}
-        <div className="flex-1 min-w-0">
+        </div>        {/* Right Side - PDF Grid */}
+        <div className="flex-1 p-6 sm:p-8 bg-gray-50/30">
           {pdfFiles.length > 0 ? (
             <div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-1">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">
                     Uploaded Files ({pdfFiles.length})
                   </h3>
-                  <p className="text-gray-600 text-sm">
+                  <p className="text-gray-600">
                     {pdfFiles.reduce((total, pdf) => total + (pdf.pageCount || 0), 0)} total pages
                     {pdfFiles.length > 1 && (
                       <span className="text-blue-600 ml-2">• Drag to reorder</span>
