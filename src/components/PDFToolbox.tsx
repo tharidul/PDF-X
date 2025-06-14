@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
-import PDFMerger from './PDFMerger';
-import PDFSplitter from './PDFSplitter';
-import PDFRemover from './PDFRemover';
+import React, { useState, Suspense } from 'react';
 import Footer from './Footer';
+
+// Lazy load PDF components for better code splitting
+const PDFMerger = React.lazy(() => import('./PDFMerger'));
+const PDFSplitter = React.lazy(() => import('./PDFSplitter'));
+const PDFRemover = React.lazy(() => import('./PDFRemover'));
+
+// Loading component for suspense fallback
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center min-h-[400px]">
+    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+  </div>
+);
 
 const PDFToolbox: React.FC = () => {
   const [activeMode, setActiveMode] = useState<'merge' | 'split' | 'remove'>('merge');
@@ -262,11 +271,12 @@ const PDFToolbox: React.FC = () => {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Content - Full Width */}
+        </div>        {/* Content - Full Width */}
         <div className="w-full">
-          {activeMode === 'merge' ? <PDFMerger /> : activeMode === 'split' ? <PDFSplitter /> : <PDFRemover />}        </div>
+          <Suspense fallback={<LoadingSpinner />}>
+            {activeMode === 'merge' ? <PDFMerger /> : activeMode === 'split' ? <PDFSplitter /> : <PDFRemover />}
+          </Suspense>
+        </div>
       </main>
 
       <Footer />
