@@ -1,5 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { PDFDocument } from 'pdf-lib';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface PDFFile {
   file: File;
@@ -37,56 +41,83 @@ const PDFMerger: React.FC = () => {
       return 0;
     }
   };
-
   const generateThumbnail = async (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          // Create a simple PDF icon as thumbnail for now
-          // In a real implementation, you'd use PDF.js to render the first page
-          const canvas = document.createElement('canvas');
-          canvas.width = 200;
-          canvas.height = 260;
-          const ctx = canvas.getContext('2d');
-          
-          if (ctx) {
-            // Draw PDF icon background
-            ctx.fillStyle = '#f3f4f6';
-            ctx.fillRect(0, 0, 200, 260);
-            
-            // Draw PDF icon
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(40, 40, 120, 160);
-            
-            // Draw fold corner
-            ctx.fillStyle = '#dc2626';
-            ctx.beginPath();
-            ctx.moveTo(140, 40);
-            ctx.lineTo(160, 40);
-            ctx.lineTo(160, 60);
-            ctx.closePath();
-            ctx.fill();
-            
-            // Draw text
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 20px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('PDF', 100, 130);
-            
-            // Draw filename
-            ctx.fillStyle = '#374151';
-            ctx.font = '12px Arial';
-            const fileName = file.name.length > 20 ? file.name.substring(0, 17) + '...' : file.name;
-            ctx.fillText(fileName, 100, 230);
-          }
-          
-          resolve(canvas.toDataURL());
-        } catch {
+    return new Promise(async (resolve) => {
+      try {
+        // Load PDF with PDF.js
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        // Get the first page
+        const page = await pdf.getPage(1);
+        
+        // Set up canvas for rendering
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        
+        if (!context) {
           resolve('');
+          return;
         }
-      };
-      reader.readAsArrayBuffer(file);
+        
+        // Calculate scale to fit thumbnail size
+        const viewport = page.getViewport({ scale: 1 });
+        const scale = Math.min(200 / viewport.width, 260 / viewport.height);
+        const scaledViewport = page.getViewport({ scale });
+        
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+        
+        // Render page to canvas
+        const renderContext = {
+          canvasContext: context,
+          viewport: scaledViewport,
+        };
+        
+        await page.render(renderContext).promise;
+        
+        resolve(canvas.toDataURL());
+      } catch (error) {
+        console.error('Error generating thumbnail:', error);
+        // Fallback to simple PDF icon
+        const canvas = document.createElement('canvas');
+        canvas.width = 200;
+        canvas.height = 260;
+        const ctx = canvas.getContext('2d');
+        
+        if (ctx) {
+          // Draw PDF icon background
+          ctx.fillStyle = '#f3f4f6';
+          ctx.fillRect(0, 0, 200, 260);
+          
+          // Draw PDF icon
+          ctx.fillStyle = '#ef4444';
+          ctx.fillRect(40, 40, 120, 160);
+          
+          // Draw fold corner
+          ctx.fillStyle = '#dc2626';
+          ctx.beginPath();
+          ctx.moveTo(140, 40);
+          ctx.lineTo(160, 40);
+          ctx.lineTo(160, 60);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Draw text
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 20px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('PDF', 100, 130);
+          
+          // Draw filename
+          ctx.fillStyle = '#374151';
+          ctx.font = '12px Arial';
+          const fileName = file.name.length > 20 ? file.name.substring(0, 17) + '...' : file.name;
+          ctx.fillText(fileName, 100, 230);
+        }
+        
+        resolve(canvas.toDataURL());
+      }
     });
   };
 
@@ -241,22 +272,11 @@ const PDFMerger: React.FC = () => {
       setIsLoading(false);
     }
   };
-
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">
-          Merge PDFs
-        </h2>
-        <p className="text-gray-600">
-          Upload multiple PDF files to merge them into a single document
-        </p>
-      </div>
-
+    <div className="bg-white rounded-3xl shadow-2xl shadow-blue-500/10 border border-gray-200/50 backdrop-blur-sm">
       {/* Error Display */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
+        <div className="mb-6 mx-6 sm:mx-8 mt-6 sm:mt-8 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
           <div className="flex items-center">
             <svg className="h-6 w-6 text-red-400 mr-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
@@ -269,15 +289,15 @@ const PDFMerger: React.FC = () => {
         </div>
       )}
 
-      {/* Main Content - Horizontal Layout */}
-      <div className="flex flex-col lg:flex-row gap-8 min-h-[500px]">
-        {/* Left Side - Upload Area */}
-        <div className="w-full lg:w-80 flex-shrink-0">
+      {/* Main Content - Full Width Horizontal Layout */}
+      <div className="flex flex-col xl:flex-row min-h-[600px]">
+        {/* Left Side - Upload Area & Controls */}
+        <div className="w-full xl:w-96 flex-shrink-0 p-6 sm:p-8 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
           <div 
-            className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 h-full flex flex-col justify-center ${
+            className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 h-full flex flex-col justify-center ${
               isDragOver 
-                ? 'border-blue-500 bg-blue-50 scale-102' 
-                : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+                ? 'border-blue-500 bg-blue-50 scale-102 shadow-lg' 
+                : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50/50'
             }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}

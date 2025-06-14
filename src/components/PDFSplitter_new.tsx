@@ -20,10 +20,11 @@ interface PageInfo {
 }
 
 const PDFSplitter: React.FC = () => {
-  const [pdfFile, setPdfFile] = useState<PDFFile | null>(null);
+  const [pdfFiles, setPdfFiles] = useState<PDFFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [selectedFileForSplit, setSelectedFileForSplit] = useState<string | null>(null);
   const [pageRange, setPageRange] = useState('');
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
@@ -151,29 +152,30 @@ const PDFSplitter: React.FC = () => {
     }
     setPages(pageList);
   };
-  const processFile = async (file: File) => {
+
+  const processFiles = async (files: FileList | File[]) => {
     setError(null);
     setIsLoading(true);
+    const newPdfFiles: PDFFile[] = [];
+    const fileArray = Array.from(files);
 
-    if (file.type === 'application/pdf') {
-      const pageCount = await getPageCount(file);
-      const newPdfFile: PDFFile = {
-        file,
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: file.name,
-        size: formatFileSize(file.size),
-        pageCount
-      };
-      setPdfFile(newPdfFile);
-      
-      // Automatically load pages for the uploaded file
-      if (pageCount > 0) {
-        await generatePages(file, pageCount);
+    for (const file of fileArray) {
+      if (file.type === 'application/pdf') {
+        const pageCount = await getPageCount(file);
+        const pdfFile: PDFFile = {
+          file,
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: file.name,
+          size: formatFileSize(file.size),
+          pageCount
+        };
+        newPdfFiles.push(pdfFile);
+      } else {
+        setError(`File "${file.name}" is not a PDF. Only PDF files are allowed.`);
       }
-    } else {
-      setError(`File "${file.name}" is not a PDF. Only PDF files are allowed.`);
     }
 
+    setPdfFiles(prev => [...prev, ...newPdfFiles]);
     setIsLoading(false);
     
     if (fileInputRef.current) {
@@ -183,8 +185,8 @@ const PDFSplitter: React.FC = () => {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files || files.length === 0) return;
-    await processFile(files[0]); // Only process the first file
+    if (!files) return;
+    await processFiles(files);
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -198,6 +200,7 @@ const PDFSplitter: React.FC = () => {
     e.stopPropagation();
     setIsDragOver(false);
   };
+
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -205,24 +208,40 @@ const PDFSplitter: React.FC = () => {
 
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      await processFile(files[0]); // Only process the first file
+      await processFiles(files);
     }
   };
 
-  const removeFile = () => {
-    setPdfFile(null);
+  const removeFile = (id: string) => {
+    setPdfFiles(prev => prev.filter(file => file.id !== id));
     setError(null);
+    if (selectedFileForSplit === id) {
+      setSelectedFileForSplit(null);
+      setPageRange('');
+      setSelectedPages([]);
+      setPages([]);
+    }
+  };
+
+  const clearAllFiles = () => {
+    setPdfFiles([]);
+    setError(null);
+    setSelectedFileForSplit(null);
     setPageRange('');
     setSelectedPages([]);
     setPages([]);
   };
 
-  const clearFile = () => {
-    setPdfFile(null);
-    setError(null);
+  const handleSelectFile = async (fileId: string) => {
+    setSelectedFileForSplit(fileId);
     setPageRange('');
     setSelectedPages([]);
-    setPages([]);
+    setError(null);
+    
+    const file = pdfFiles.find(f => f.id === fileId);
+    if (file?.pageCount) {
+      await generatePages(file.file, file.pageCount);
+    }
   };
 
   const handlePageClick = (pageNumber: number) => {
@@ -269,16 +288,19 @@ const PDFSplitter: React.FC = () => {
 
     setPageRange(ranges.join(', '));
   };
+
   const handlePageRangeChange = (range: string) => {
     setPageRange(range);
     const parsedPages = parsePageRange(range);
-    const validPages = parsedPages.filter(p => p >= 1 && p <= (pdfFile?.pageCount || 0));
+    const file = pdfFiles.find(f => f.id === selectedFileForSplit);
+    const validPages = parsedPages.filter(p => p >= 1 && p <= (file?.pageCount || 0));
     setSelectedPages(validPages);
   };
 
-  const splitPDF = async (range: string) => {
-    if (!pdfFile) {
-      setError('No file selected.');
+  const splitPDF = async (fileId: string, range: string) => {
+    const file = pdfFiles.find(f => f.id === fileId);
+    if (!file) {
+      setError('File not found.');
       return;
     }
 
@@ -288,7 +310,7 @@ const PDFSplitter: React.FC = () => {
       return;
     }
 
-    const maxPages = pdfFile.pageCount || 0;
+    const maxPages = file.pageCount || 0;
     const invalidPages = pagesToExtract.filter(page => page < 1 || page > maxPages);
     if (invalidPages.length > 0) {
       setError(`Invalid page numbers: ${invalidPages.join(', ')}. This PDF has ${maxPages} pages.`);
@@ -299,7 +321,7 @@ const PDFSplitter: React.FC = () => {
     setError(null);
 
     try {
-      const arrayBuffer = await pdfFile.file.arrayBuffer();
+      const arrayBuffer = await file.file.arrayBuffer();
       const originalPdf = await PDFDocument.load(arrayBuffer);
       const newPdf = await PDFDocument.create();
 
@@ -315,7 +337,7 @@ const PDFSplitter: React.FC = () => {
 
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${pdfFile.name.replace('.pdf', '')}-pages-${range.replace(/\s/g, '')}.pdf`;
+      link.download = `${file.name.replace('.pdf', '')}-pages-${range.replace(/\s/g, '')}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -402,50 +424,65 @@ const PDFSplitter: React.FC = () => {
                   />
                 </div>
               )}
-            </div>            {/* File Display */}
-            {pdfFile && (
+            </div>
+
+            {/* File List */}
+            {pdfFiles.length > 0 && (
               <div>
                 <h3 className="text-xl font-bold text-gray-800 mb-4">
-                  Current File
+                  Uploaded Files ({pdfFiles.length})
                 </h3>
-                <div 
-                  className="group border-2 rounded-xl p-4 transition-all duration-200 border-blue-500 bg-blue-50 shadow-lg"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                        <svg className="h-7 w-7 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-gray-900 truncate">{pdfFile.name}</h4>
-                      <div className="flex items-center space-x-3 mt-1">
-                        <span className="text-sm text-gray-500">{pdfFile.size}</span>
-                        <span className="text-sm text-blue-600 font-medium">
-                          {pdfFile.pageCount || 0} pages
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => removeFile()}
-                      className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                      title="Remove file"
+                <div className="space-y-3">
+                  {pdfFiles.map((pdf) => (
+                    <div 
+                      key={pdf.id}
+                      className={`group border-2 rounded-xl p-4 transition-all duration-200 cursor-pointer ${
+                        selectedFileForSplit === pdf.id
+                          ? 'border-blue-500 bg-blue-50 shadow-lg'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                      onClick={() => handleSelectFile(pdf.id)}
                     >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                            <svg className="h-7 w-7 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-gray-900 truncate">{pdf.name}</h4>
+                          <div className="flex items-center space-x-3 mt-1">
+                            <span className="text-sm text-gray-500">{pdf.size}</span>
+                            <span className="text-sm text-blue-600 font-medium">
+                              {pdf.pageCount || 0} pages
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFile(pdf.id);
+                          }}
+                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          title="Remove file"
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
             {/* Split Controls */}
-            {pdfFile && (
+            {selectedFileForSplit && (
               <div className="border-2 border-blue-200 rounded-2xl p-6 bg-gradient-to-br from-blue-50 to-indigo-50">
                 <h4 className="font-bold text-blue-800 mb-4 flex items-center text-lg">
                   <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -506,7 +543,7 @@ const PDFSplitter: React.FC = () => {
 
                 {/* Split Button */}
                 <button
-                  onClick={() => splitPDF(pageRange)}
+                  onClick={() => splitPDF(selectedFileForSplit, pageRange)}
                   disabled={isLoading || !pageRange.trim() || selectedPages.length === 0}
                   className={`w-full px-6 py-4 rounded-xl font-bold text-lg transition-all duration-200 ${
                     isLoading || !pageRange.trim() || selectedPages.length === 0
@@ -532,20 +569,22 @@ const PDFSplitter: React.FC = () => {
                   )}
                 </button>
 
-                {pdfFile && (
+                {pdfFiles.length > 0 && (
                   <button
-                    onClick={clearFile}
+                    onClick={clearAllFiles}
                     className="w-full mt-3 px-6 py-3 text-red-600 hover:text-red-700 border border-red-300 rounded-xl hover:bg-red-50 transition-all duration-200 font-medium"
                   >
-                    Clear File
+                    Clear All Files
                   </button>
                 )}
               </div>
             )}
           </div>
-        </div>        {/* Right Side - Pages Grid - Full Width */}
+        </div>
+
+        {/* Right Side - Pages Grid - Full Width */}
         <div className="flex-1 p-6 sm:p-8 bg-gray-50/30">
-          {pdfFile && pages.length > 0 ? (
+          {selectedFileForSplit && pages.length > 0 ? (
             <div className="h-full">
               <div className="flex items-center justify-between mb-8">
                 <div>
@@ -612,7 +651,7 @@ const PDFSplitter: React.FC = () => {
                 ))}
               </div>
             </div>
-          ) : pdfFile && pages.length === 0 ? (
+          ) : selectedFileForSplit ? (
             <div className="flex items-center justify-center h-full text-center py-20">
               <div className="max-w-lg mx-auto">
                 <div className="w-20 h-20 mx-auto mb-6 bg-blue-100 rounded-full flex items-center justify-center">
@@ -637,12 +676,12 @@ const PDFSplitter: React.FC = () => {
                   </svg>
                 </div>
                 <h4 className="text-2xl font-bold text-gray-900 mb-4">
-                  {!pdfFile ? 'Ready to split your PDF' : 'Upload a PDF file'}
+                  {pdfFiles.length === 0 ? 'Ready to split your PDF' : 'Select a PDF to split'}
                 </h4>
                 <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-                  {!pdfFile 
+                  {pdfFiles.length === 0 
                     ? 'Upload a PDF file using the upload area to view its pages and extract specific sections.'
-                    : 'Your file is being processed. Pages will appear here once ready.'
+                    : 'Click on a PDF file in the left panel to view its pages and start splitting.'
                   }
                 </p>
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 text-left border border-blue-100">
@@ -656,7 +695,7 @@ const PDFSplitter: React.FC = () => {
                     </div>
                     <div className="flex items-start space-x-3">
                       <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">2</div>
-                      <span>Pages will automatically appear as thumbnails once the file is processed</span>
+                      <span>Click on the uploaded PDF to view all its pages as thumbnails</span>
                     </div>
                     <div className="flex items-start space-x-3">
                       <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">3</div>

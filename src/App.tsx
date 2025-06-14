@@ -1,10 +1,10 @@
 
-import PDFMerger from './components/PDFMerger'
+import PDFToolbox from './components/PDFToolbox'
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <PDFMerger />
+    <div className="min-h-screen">
+      <PDFToolbox />
     </div>
   )
 }
