@@ -274,7 +274,9 @@ const PDFToolbox: React.FC = () => {
         </div>        {/* Content - Full Width */}
         <div className="w-full">
           <Suspense fallback={<LoadingSpinner />}>
-            {activeMode === 'merge' ? <PDFMerger /> : activeMode === 'split' ? <PDFSplitter /> : <PDFRemover />}
+            {activeMode === 'merge' && <PDFMerger key="merger" />}
+            {activeMode === 'split' && <PDFSplitter key="splitter" />}
+            {activeMode === 'remove' && <PDFRemover key="remover" />}
           </Suspense>
         </div>
       </main>

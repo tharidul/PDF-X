@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
@@ -24,11 +24,24 @@ interface PageInfo {
 const PDFSplitter: React.FC = () => {
   const [pdfFile, setPdfFile] = useState<PDFFile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isDragOver, setIsDragOver] = useState(false);  const [pageRange, setPageRange] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [pageRange, setPageRange] = useState('');
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Add cancellation control
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isProcessingRef = useRef(false);
+  // Cleanup function when component unmounts
+  useEffect(() => {
+    return () => {
+      // Cancel any ongoing processing when component unmounts
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -69,17 +82,30 @@ const PDFSplitter: React.FC = () => {
     } catch {
       return 0;
     }
-  };
-  const generatePageThumbnail = async (file: File, pageNumber: number): Promise<string> => {
+  };  const generatePageThumbnail = async (file: File, pageNumber: number, signal?: AbortSignal): Promise<string> => {
     try {
+      // Check if operation was cancelled
+      if (signal?.aborted) {
+        throw new Error('Operation cancelled');
+      }
+
       console.log(`Generating thumbnail for page ${pageNumber}`);
       const arrayBuffer = await file.arrayBuffer();
       
+      if (signal?.aborted) {
+        throw new Error('Operation cancelled');
+      }
+
       const loadingTask = pdfjsLib.getDocument({ 
         data: arrayBuffer,
         verbosity: 0 // Reduce console noise
       });
       const pdf = await loadingTask.promise;
+      
+      if (signal?.aborted) {
+        throw new Error('Operation cancelled');
+      }
+
       const page = await pdf.getPage(pageNumber);
       
       const viewport = page.getViewport({ scale: 1.0 });
@@ -107,13 +133,22 @@ const PDFSplitter: React.FC = () => {
         canvasContext: context,
         viewport: scaledViewport,
       };
-      
-      // Render the actual PDF page content
+        // Render the actual PDF page content
       const renderTask = page.render(renderContext);
       await renderTask.promise;
       
+      // Final check before returning
+      if (signal?.aborted) {
+        throw new Error('Operation cancelled');
+      }
+      
       console.log(`Successfully generated thumbnail for page ${pageNumber}`);
-      return canvas.toDataURL('image/png', 0.8);    } catch (error: any) {
+      return canvas.toDataURL('image/png', 0.8);
+    } catch (error: any) {
+      // Don't log errors for cancelled operations
+      if (error.message === 'Operation cancelled') {
+        throw error;
+      }
       console.error(`Error generating page thumbnail for page ${pageNumber}:`, error);
       
       // Only return placeholder if PDF rendering completely fails
@@ -147,65 +182,104 @@ const PDFSplitter: React.FC = () => {
     }
   };  const generatePages = async (file: File, pageCount: number) => {
     console.log(`Starting to generate thumbnails for ${pageCount} pages`);
-    const pageList: PageInfo[] = [];
+    
+    // Create new abort controller for this operation
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    isProcessingRef.current = true;
+    
+    try {
+      const pageList: PageInfo[] = [];
       // Only generate thumbnails for first 100 pages for performance
-    const maxThumbnails = 100;
-    const thumbnailCount = Math.min(pageCount, maxThumbnails);
+      const maxThumbnails = 100;
+      const thumbnailCount = Math.min(pageCount, maxThumbnails);
       console.log(`Generating thumbnails for first ${thumbnailCount} pages${pageCount > maxThumbnails ? ` (pages ${maxThumbnails + 1}-${pageCount} will be shown as one summary card)` : ''}`);
-    
-    // Add pages 1-100 (or less if PDF has fewer pages)
-    for (let i = 1; i <= thumbnailCount; i++) {
-      pageList.push({
-        pageNumber: i,
-        thumbnail: undefined
-      });
-    }
-      // If there are more than 100 pages, add ONE summary card for the rest
-    if (pageCount > maxThumbnails) {
-      pageList.push({
-        pageNumber: -1, // Special marker for summary card
-        thumbnail: 'SUMMARY_CARD' // Special marker
-      });
-    }
-    
-    // Set initial state with pages
-    setPages([...pageList]);
-    
-    // Generate thumbnails only for first 100 pages
-    const batchSize = 3;
-    for (let i = 0; i < thumbnailCount; i += batchSize) {
-      const batch = [];
-      for (let j = i; j < Math.min(i + batchSize, thumbnailCount); j++) {
-        const pageNumber = j + 1;
-        batch.push(
-          generatePageThumbnail(file, pageNumber).then(thumbnail => ({
-            pageNumber,
-            thumbnail
-          })).catch(error => {
-            console.error(`Failed to generate thumbnail for page ${pageNumber}:`, error);
-            return {
-              pageNumber,
-              thumbnail: undefined
-            };
-          })
-        );
+        // Add pages 1-100 (or less if PDF has fewer pages)
+      for (let i = 1; i <= thumbnailCount; i++) {
+        pageList.push({
+          pageNumber: i,
+          thumbnail: undefined
+        });
       }
       
-      const batchResults = await Promise.all(batch);
+      // If there are more than 100 pages, add ONE summary card for the rest
+      if (pageCount > maxThumbnails) {
+        pageList.push({
+          pageNumber: -1, // Special marker for summary card
+          thumbnail: 'SUMMARY_CARD' // Special marker
+        });
+      }
       
-      // Update thumbnails in the existing pageList
-      batchResults.forEach(result => {
-        const index = pageList.findIndex(p => p.pageNumber === result.pageNumber);
-        if (index !== -1) {
-          pageList[index] = result;
-        }
-      });
-      
-      // Update pages incrementally so user sees progress
+      // Set initial state with pages
       setPages([...pageList]);
+      
+      // Generate thumbnails only for first 100 pages
+      const batchSize = 3;
+      for (let i = 0; i < thumbnailCount; i += batchSize) {
+        // Check if operation was cancelled before processing each batch
+        if (signal.aborted) {
+          console.log('Thumbnail generation cancelled');
+          return;
+        }
+        
+        const batch = [];
+        for (let j = i; j < Math.min(i + batchSize, thumbnailCount); j++) {
+          const pageNumber = j + 1;
+          batch.push(
+            generatePageThumbnail(file, pageNumber, signal).then(thumbnail => ({
+              pageNumber,
+              thumbnail
+            })).catch(error => {
+              if (error.message === 'Operation cancelled') {
+                throw error; // Re-throw cancellation errors
+              }
+              console.error(`Failed to generate thumbnail for page ${pageNumber}:`, error);
+              return {
+                pageNumber,
+                thumbnail: undefined
+              };
+            })
+          );
+        }
+        
+        try {
+          const batchResults = await Promise.all(batch);
+          
+          // Check again after batch completion
+          if (signal.aborted) {
+            console.log('Thumbnail generation cancelled after batch completion');
+            return;
+          }
+          
+          // Update thumbnails in the existing pageList
+          batchResults.forEach(result => {
+            const index = pageList.findIndex(p => p.pageNumber === result.pageNumber);
+            if (index !== -1) {
+              pageList[index] = result;
+            }
+          });
+          
+          // Update pages incrementally so user sees progress
+          setPages([...pageList]);
+        } catch (error: any) {
+          if (error.message === 'Operation cancelled') {
+            console.log('Thumbnail generation cancelled during batch processing');
+            return;
+          }
+          // Continue with next batch if individual thumbnails fail
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      console.log(`Completed generating ${thumbnailCount} page thumbnails out of ${pageCount} total pages`);
+    } catch (error: any) {
+      if (error.message !== 'Operation cancelled') {
+        console.error('Error during thumbnail generation:', error);
+      }
+    } finally {
+      isProcessingRef.current = false;
     }
-    
-    console.log(`Completed generating ${thumbnailCount} page thumbnails out of ${pageCount} total pages`);
   };  const processFile = async (file: File) => {
     // Check file size limit (100MB)
     const maxFileSize = 100 * 1024 * 1024; // 100MB in bytes
@@ -215,6 +289,12 @@ const PDFSplitter: React.FC = () => {
         fileInputRef.current.value = '';
       }
       return;
+    }
+
+    // Cancel any existing processing before starting new upload
+    if (abortControllerRef.current && isProcessingRef.current) {
+      abortControllerRef.current.abort();
+      isProcessingRef.current = false;
     }
 
     setIsLoading(true);
@@ -273,11 +353,17 @@ const PDFSplitter: React.FC = () => {
     if (files.length > 0) {
       await processFile(files[0]); // Only process the first file
     }
-  };const removeFile = () => {
+  };  const removeFile = () => {
+    // Cancel any ongoing processing
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
     setPdfFile(null);
     setPageRange('');
     setSelectedPages([]);
     setPages([]);
+    isProcessingRef.current = false;
     toast.success('File removed successfully');
   };const handlePageClick = (pageNumber: number) => {
     // Normal page selection (summary card is not clickable)

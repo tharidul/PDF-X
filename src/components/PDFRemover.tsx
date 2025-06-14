@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
@@ -30,6 +30,18 @@ const PDFRemover: React.FC = () => {
   const [pages, setPages] = useState<PageInfo[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Add cancellation control
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isProcessingRef = useRef(false);
+  // Cleanup function when component unmounts
+  useEffect(() => {
+    return () => {
+      // Cancel any ongoing processing when component unmounts
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -71,17 +83,30 @@ const PDFRemover: React.FC = () => {
       return 0;
     }
   };
-
-  const generatePageThumbnail = async (file: File, pageNumber: number): Promise<string> => {
+  const generatePageThumbnail = async (file: File, pageNumber: number, signal?: AbortSignal): Promise<string> => {
     try {
+      // Check if operation was cancelled
+      if (signal?.aborted) {
+        throw new Error('Operation cancelled');
+      }
+
       console.log(`Generating thumbnail for page ${pageNumber}`);
       const arrayBuffer = await file.arrayBuffer();
       
+      if (signal?.aborted) {
+        throw new Error('Operation cancelled');
+      }
+
       const loadingTask = pdfjsLib.getDocument({ 
         data: arrayBuffer,
         verbosity: 0
       });
       const pdf = await loadingTask.promise;
+      
+      if (signal?.aborted) {
+        throw new Error('Operation cancelled');
+      }
+
       const page = await pdf.getPage(pageNumber);
       
       const viewport = page.getViewport({ scale: 1.0 });
@@ -102,8 +127,7 @@ const PDFRemover: React.FC = () => {
       
       context.fillStyle = '#ffffff';
       context.fillRect(0, 0, canvas.width, canvas.height);
-      
-      const renderContext = {
+        const renderContext = {
         canvasContext: context,
         viewport: scaledViewport,
       };
@@ -111,9 +135,19 @@ const PDFRemover: React.FC = () => {
       const renderTask = page.render(renderContext);
       await renderTask.promise;
       
+      // Final check before returning
+      if (signal?.aborted) {
+        throw new Error('Operation cancelled');
+      }
+      
       console.log(`Successfully generated thumbnail for page ${pageNumber}`);
       return canvas.toDataURL('image/png', 0.8);
     } catch (error: any) {
+      // Don't log errors for cancelled operations
+      if (error.message === 'Operation cancelled') {
+        throw error;
+      }
+      
       console.error(`Error generating page thumbnail for page ${pageNumber}:`, error);
       
       return new Promise((resolve) => {
@@ -142,66 +176,103 @@ const PDFRemover: React.FC = () => {
       });
     }
   };
-
   const generatePages = async (file: File, pageCount: number) => {
     console.log(`Starting to generate thumbnails for ${pageCount} pages`);
-    const pageList: PageInfo[] = [];
-    const maxThumbnails = 100;
-    const thumbnailCount = Math.min(pageCount, maxThumbnails);
     
-    for (let i = 1; i <= thumbnailCount; i++) {
-      pageList.push({
-        pageNumber: i,
-        thumbnail: undefined
-      });
-    }
+    // Create new abort controller for this operation
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    isProcessingRef.current = true;
     
-    if (pageCount > maxThumbnails) {
-      pageList.push({
-        pageNumber: -1,
-        thumbnail: 'SUMMARY_CARD'
-      });
-    }
-    
-    setPages([...pageList]);
-    
-    const batchSize = 3;
-    for (let i = 0; i < thumbnailCount; i += batchSize) {
-      const batch = [];
-      for (let j = i; j < Math.min(i + batchSize, thumbnailCount); j++) {
-        const pageNumber = j + 1;
-        batch.push(
-          generatePageThumbnail(file, pageNumber).then(thumbnail => ({
-            pageNumber,
-            thumbnail
-          })).catch(error => {
-            console.error(`Failed to generate thumbnail for page ${pageNumber}:`, error);
-            return {
-              pageNumber,
-              thumbnail: undefined
-            };
-          })
-        );
+    try {
+      const pageList: PageInfo[] = [];
+      const maxThumbnails = 100;
+      const thumbnailCount = Math.min(pageCount, maxThumbnails);
+      
+      for (let i = 1; i <= thumbnailCount; i++) {
+        pageList.push({
+          pageNumber: i,
+          thumbnail: undefined
+        });
       }
       
-      const batchResults = await Promise.all(batch);
+      if (pageCount > maxThumbnails) {
+        pageList.push({
+          pageNumber: -1,
+          thumbnail: 'SUMMARY_CARD'
+        });
+      }
       
-      batchResults.forEach(result => {
-        if (result && result.thumbnail) {
-          setPages(prevPages => 
-            prevPages.map(page => 
-              page.pageNumber === result.pageNumber 
-                ? { ...page, thumbnail: result.thumbnail }
-                : page
-            )
+      setPages([...pageList]);
+      
+      const batchSize = 3;
+      for (let i = 0; i < thumbnailCount; i += batchSize) {
+        // Check if operation was cancelled before processing each batch
+        if (signal.aborted) {
+          console.log('Thumbnail generation cancelled');
+          return;
+        }
+        
+        const batch = [];
+        for (let j = i; j < Math.min(i + batchSize, thumbnailCount); j++) {
+          const pageNumber = j + 1;
+          batch.push(
+            generatePageThumbnail(file, pageNumber, signal).then(thumbnail => ({
+              pageNumber,
+              thumbnail
+            })).catch(error => {
+              if (error.message === 'Operation cancelled') {
+                throw error; // Re-throw cancellation errors
+              }
+              console.error(`Failed to generate thumbnail for page ${pageNumber}:`, error);
+              return {
+                pageNumber,
+                thumbnail: undefined
+              };
+            })
           );
         }
-      });
+        
+        try {
+          const batchResults = await Promise.all(batch);
+          
+          // Check again after batch completion
+          if (signal.aborted) {
+            console.log('Thumbnail generation cancelled after batch completion');
+            return;
+          }
+          
+          batchResults.forEach(result => {
+            if (result && result.thumbnail) {
+              setPages(prevPages => 
+                prevPages.map(page => 
+                  page.pageNumber === result.pageNumber 
+                    ? { ...page, thumbnail: result.thumbnail }
+                    : page
+                )
+              );
+            }
+          });
+        } catch (error: any) {
+          if (error.message === 'Operation cancelled') {
+            console.log('Thumbnail generation cancelled during batch processing');
+            return;
+          }
+          // Continue with next batch if individual thumbnails fail
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
       
-      await new Promise(resolve => setTimeout(resolve, 50));
+      console.log('Thumbnail generation completed successfully');
+    } catch (error: any) {
+      if (error.message !== 'Operation cancelled') {
+        console.error('Error during thumbnail generation:', error);
+      }
+    } finally {
+      isProcessingRef.current = false;
     }
   };
-
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -209,6 +280,12 @@ const PDFRemover: React.FC = () => {
     if (file.size > 100 * 1024 * 1024) {
       toast.error('File too large. Maximum size is 100MB.');
       return;
+    }
+
+    // Cancel any existing processing before starting new upload
+    if (abortControllerRef.current && isProcessingRef.current) {
+      abortControllerRef.current.abort();
+      isProcessingRef.current = false;
     }
 
     setIsLoading(true);
@@ -272,12 +349,18 @@ const PDFRemover: React.FC = () => {
     event.preventDefault();
     setIsDragOver(false);
   };
-
   const removeFile = () => {
+    // Cancel any ongoing processing
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
     setPdfFile(null);
     setSelectedPages([]);
     setPageRange('');
     setPages([]);
+    isProcessingRef.current = false;
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
