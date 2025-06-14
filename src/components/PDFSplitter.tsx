@@ -27,7 +27,7 @@ const PDFSplitter: React.FC = () => {
   const [pageRange, setPageRange] = useState('');
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
-  const [viewMode, setViewMode] = useState<'range' | 'visual'>('visual');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const formatFileSize = (bytes: number): string => {
@@ -208,16 +208,7 @@ const PDFSplitter: React.FC = () => {
       await processFile(files[0]); // Only process the first file
     }
   };
-
   const removeFile = () => {
-    setPdfFile(null);
-    setError(null);
-    setPageRange('');
-    setSelectedPages([]);
-    setPages([]);
-  };
-
-  const clearFile = () => {
     setPdfFile(null);
     setError(null);
     setPageRange('');
@@ -351,12 +342,13 @@ const PDFSplitter: React.FC = () => {
       <div className="flex flex-col xl:flex-row min-h-[600px]">
         {/* Left Side - Upload Area & Controls */}
         <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
-          <div className="p-6 sm:p-8 space-y-6">
-            {/* Upload Section */}
+          <div className="p-6 sm:p-8 space-y-6">            {/* Upload Section with Current File Preview */}
             <div 
               className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
                 isDragOver 
                   ? 'border-blue-500 bg-blue-50 scale-102 shadow-lg' 
+                  : pdfFile
+                  ? 'border-green-400 bg-green-50'
                   : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50/50'
               }`}
               onDragOver={handleDragOver}
@@ -369,8 +361,48 @@ const PDFSplitter: React.FC = () => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <p className="text-xl font-semibold text-blue-600">Processing files...</p>
-                  <p className="text-gray-500 mt-2">Please wait while we analyze your PDF</p>
+                  <p className="text-xl font-semibold text-blue-600">Processing PDF...</p>
+                  <p className="text-gray-500 mt-2">Please wait while we analyze your file</p>
+                </div>
+              ) : pdfFile ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center">
+                    <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center">
+                      <svg className="h-10 w-10 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800 truncate">{pdfFile.name}</h3>
+                    <div className="flex items-center justify-center space-x-3 mt-2">
+                      <span className="text-sm text-gray-500">{pdfFile.size}</span>
+                      <span className="text-sm text-green-600 font-medium">
+                        {pdfFile.pageCount || 0} pages
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-3">
+                    <label htmlFor="pdf-upload" className="cursor-pointer flex-1">
+                      <div className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                        Change File
+                      </div>
+                    </label>
+                    <button
+                      onClick={removeFile}
+                      className="px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    id="pdf-upload"
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -402,49 +434,7 @@ const PDFSplitter: React.FC = () => {
                   />
                 </div>
               )}
-            </div>            {/* File Display */}
-            {pdfFile && (
-              <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4">
-                  Current File
-                </h3>
-                <div 
-                  className="group border-2 rounded-xl p-4 transition-all duration-200 border-blue-500 bg-blue-50 shadow-lg"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                        <svg className="h-7 w-7 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-gray-900 truncate">{pdfFile.name}</h4>
-                      <div className="flex items-center space-x-3 mt-1">
-                        <span className="text-sm text-gray-500">{pdfFile.size}</span>
-                        <span className="text-sm text-blue-600 font-medium">
-                          {pdfFile.pageCount || 0} pages
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => removeFile()}
-                      className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                      title="Remove file"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Split Controls */}
+            </div>            {/* Split Controls */}
             {pdfFile && (
               <div className="border-2 border-blue-200 rounded-2xl p-6 bg-gradient-to-br from-blue-50 to-indigo-50">
                 <h4 className="font-bold text-blue-800 mb-4 flex items-center text-lg">
@@ -453,36 +443,6 @@ const PDFSplitter: React.FC = () => {
                   </svg>
                   Split Pages
                 </h4>
-                
-                {/* Mode Toggle */}
-                <div className="flex items-center bg-white rounded-xl p-1.5 mb-6 shadow-sm">
-                  <button
-                    onClick={() => setViewMode('visual')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center flex-1 justify-center ${
-                      viewMode === 'visual' 
-                        ? 'bg-blue-100 text-blue-600 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-800'
-                    }`}
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                    </svg>
-                    Visual
-                  </button>
-                  <button
-                    onClick={() => setViewMode('range')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center flex-1 justify-center ${
-                      viewMode === 'range' 
-                        ? 'bg-blue-100 text-blue-600 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-800'
-                    }`}
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Range
-                  </button>
-                </div>
 
                 {/* Page Range Input */}
                 <div className="mb-6">
@@ -531,15 +491,6 @@ const PDFSplitter: React.FC = () => {
                     </span>
                   )}
                 </button>
-
-                {pdfFile && (
-                  <button
-                    onClick={clearFile}
-                    className="w-full mt-3 px-6 py-3 text-red-600 hover:text-red-700 border border-red-300 rounded-xl hover:bg-red-50 transition-all duration-200 font-medium"
-                  >
-                    Clear File
-                  </button>
-                )}
               </div>
             )}
           </div>
