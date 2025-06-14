@@ -1,0 +1,27 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://pdfx.lkml.live/sitemap.xml
+
+# Crawl delay
+Crawl-delay: 1
+
+# Block access to source files
+Disallow: /src/
+Disallow: /node_modules/
+Disallow: /*.tsx
+Disallow: /*.ts
+Disallow: /*.json
+
+# Allow important assets
+Allow: /images/
+Allow: /assets/
+Allow: /*.css
+Allow: /*.js
+Allow: /*.png
+Allow: /*.jpg
+Allow: /*.jpeg
+Allow: /*.gif
+Allow: /*.svg
+Allow: /*.ico
