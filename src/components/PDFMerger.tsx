@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
+import UploadCard from './UploadCard';
 
 // Set up PDF.js worker with local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -179,20 +180,19 @@ const PDFMerger: React.FC = () => {
     const files = event.target.files;
     if (!files) return;
     await processFiles(files);
-  };
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
+  };  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
+  const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
@@ -296,57 +296,25 @@ const PDFMerger: React.FC = () => {
     <div className="bg-white rounded-3xl shadow-2xl shadow-blue-500/10 border border-gray-200/50 backdrop-blur-sm">
       {/* Main Content - Full Width Horizontal Layout */}
       <div className="flex flex-col xl:flex-row min-h-[600px]">{/* Left Side - Upload Area & Controls */}
-        <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
-          <div className="p-6 sm:p-8 space-y-6">
+        <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">          <div className="p-6 sm:p-8 space-y-6">
               {/* Upload Section */}
-            <label
-              htmlFor="pdf-upload"
-              className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer block ${
-                isDragOver 
-                  ? 'border-blue-500 bg-blue-50 scale-102 shadow-lg' 
-                  : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50/50 hover:scale-[1.02]'
-              }`}
+            <UploadCard
+              isLoading={isLoading}
+              isDragOver={isDragOver}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-            >
-              {isLoading ? (
-                <div className="flex flex-col items-center">
-                  <svg className="animate-spin h-20 w-20 text-blue-600 mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <p className="text-xl font-semibold text-blue-600">Processing PDFs...</p>
-                  <p className="text-gray-500 mt-2">Please wait while we analyze your files</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="mb-8">
-                    <svg className="mx-auto h-20 w-20 text-blue-400 mb-6" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <h3 className="text-2xl font-bold text-gray-800 mb-3">Upload PDF Files</h3>
-                    <p className="text-gray-600 text-lg leading-relaxed">
-                      Drop multiple PDF files here or click anywhere to browse
-                    </p>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-4">
-                    Multiple PDF files • Max 100MB per file • Drag & drop enabled
-                  </p>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                id="pdf-upload"
-                type="file"
-                multiple
-                accept=".pdf,application/pdf"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
+              onFileChange={handleFileUpload}
+              multiple={true}
+              title="Merge PDF Files"
+              subtitle="Combine multiple PDFs into one"
+              description="Drop multiple PDF files here or click to browse. Files will be merged in the order you arrange them."
+              loadingText="Processing PDFs..."
+              loadingSubtext="Please wait while we analyze your files"
+              supportedFormats="Multiple PDF files"
+            />
 
-            {/* Merge Controls */}
+            {/* Merge Controls - Now directly below upload for better UX */}
             {pdfFiles.length > 0 && (
               <div className="border-2 border-blue-200 rounded-2xl p-6 bg-gradient-to-br from-blue-50 to-indigo-50">
                 <h4 className="font-bold text-blue-800 mb-4 flex items-center text-lg">

@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
+import UploadCard from './UploadCard';
 
 // Set up PDF.js worker with local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -242,8 +243,7 @@ const PDFRemover: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-  const handleDrop = (event: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
+  const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
     setIsDragOver(false);
     
@@ -263,12 +263,12 @@ const PDFRemover: React.FC = () => {
     }
   };
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
+  const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
     setIsDragOver(true);
   };
 
-  const handleDragLeave = (event: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
+  const handleDragLeave = (event: React.DragEvent) => {
     event.preventDefault();
     setIsDragOver(false);
   };
@@ -384,39 +384,39 @@ const PDFRemover: React.FC = () => {
       <div className="flex flex-col xl:flex-row min-h-[600px]">
         {/* Left Side - Upload Area & Controls */}
         <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-red-50/50 to-pink-50/50">
-          <div className="p-6 sm:p-8 space-y-6">
-            {/* Upload Section */}
-            <label 
-              htmlFor="pdf-upload"
-              className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer block ${
-                isDragOver 
-                  ? 'border-red-500 bg-red-50 scale-102 shadow-lg' 
-                  : 'border-gray-300 hover:border-red-400 hover:bg-gray-50/50 hover:scale-[1.02]'
-              }`}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-            >
-              {isLoading ? (
-                <div className="flex flex-col items-center">
-                  <svg className="animate-spin h-20 w-20 text-red-600 mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <p className="text-xl font-semibold text-red-600">Processing PDF...</p>
-                  <p className="text-gray-500 mt-2">Please wait while we analyze your file</p>
-                </div>
-              ) : pdfFile ? (
+          <div className="p-6 sm:p-8 space-y-6">            {/* Upload Section */}
+            {!pdfFile ? (
+              <UploadCard
+                isLoading={isLoading}
+                isDragOver={isDragOver}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onFileChange={handleFileUpload}
+                multiple={false}
+                title="Remove PDF Pages"
+                subtitle="Delete unwanted pages from your PDF"
+                description="Drop your PDF file here or click to browse. You can then select which pages to remove."
+                loadingText="Processing PDF..."
+                loadingSubtext="Please wait while we analyze your file"
+                supportedFormats="Single PDF file"
+              />
+            ) : (
+              <label 
+                htmlFor="pdf-upload"
+                className="relative border-2 border-dashed rounded-3xl p-8 text-center transition-all duration-300 cursor-pointer block border-red-400 bg-gradient-to-br from-red-50 to-pink-50"
+              >
                 <div className="space-y-4">
                   <div className="flex items-center justify-center">
-                    <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center">
-                      <svg className="h-10 w-10 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                    <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
+                      <svg className="h-12 w-12 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                       </svg>
                     </div>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800 truncate">{pdfFile.name}</h3>
+                  </div>                  <div>
+                    <h3 className="text-xl font-bold text-gray-800 truncate" title={pdfFile.name}>
+                      {pdfFile.name}
+                    </h3>
                     <div className="flex items-center justify-center space-x-3 mt-2">
                       <span className="text-sm text-gray-500">{pdfFile.size}</span>
                       <span className="text-sm text-red-600 font-medium">
@@ -425,45 +425,32 @@ const PDFRemover: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex space-x-3">
-                    <div className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors flex-1">
+                    <label
+                      htmlFor="pdf-upload-change"
+                      className="bg-gradient-to-r from-red-600 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-red-700 hover:to-pink-700 transition-all duration-300 flex-1 transform hover:scale-105 cursor-pointer text-center"
+                    >
                       Change File
-                    </div>
+                    </label>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
                         removeFile();
                       }}
-                      className="px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                      className="px-6 py-3 text-red-600 border border-red-300 rounded-xl hover:bg-red-50 transition-colors font-semibold"
                     >
                       Remove
                     </button>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="mb-8">
-                    <svg className="mx-auto h-20 w-20 text-red-400 mb-6" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <h3 className="text-2xl font-bold text-gray-800 mb-3">Upload Your PDF</h3>
-                    <p className="text-gray-600 text-lg leading-relaxed">
-                      Drop your PDF file here or click anywhere to browse
-                    </p>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-4">
-                    Single PDF file to remove pages from • Max 100MB • Drag & drop enabled
-                  </p>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                id="pdf-upload"
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
+                </div>                <input
+                  ref={fileInputRef}
+                  id="pdf-upload-change"
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
 
             {/* Page Selection Controls */}
             {pdfFile && (
