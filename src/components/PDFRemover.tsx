@@ -24,7 +24,8 @@ const PDFRemover: React.FC = () => {
   const [pdfFile, setPdfFile] = useState<PDFFile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [pageRange, setPageRange] = useState('');  const [selectedPages, setSelectedPages] = useState<number[]>([]);
+  const [pageRange, setPageRange] = useState('');
+  const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -110,7 +111,8 @@ const PDFRemover: React.FC = () => {
       await renderTask.promise;
       
       console.log(`Successfully generated thumbnail for page ${pageNumber}`);
-      return canvas.toDataURL('image/png', 0.8);    } catch (error: any) {
+      return canvas.toDataURL('image/png', 0.8);
+    } catch (error: any) {
       console.error(`Error generating page thumbnail for page ${pageNumber}:`, error);
       
       return new Promise((resolve) => {
@@ -223,7 +225,9 @@ const PDFRemover: React.FC = () => {
         name: file.name,
         size: formatFileSize(file.size),
         pageCount
-      };      setPdfFile(newFile);
+      };
+
+      setPdfFile(newFile);
       setSelectedPages([]);
       setPageRange('');
       setPages([]);
@@ -239,7 +243,7 @@ const PDFRemover: React.FC = () => {
     }
   };
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (event: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     event.preventDefault();
     setIsDragOver(false);
     
@@ -259,15 +263,16 @@ const PDFRemover: React.FC = () => {
     }
   };
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     event.preventDefault();
     setIsDragOver(true);
   };
 
-  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     event.preventDefault();
     setIsDragOver(false);
   };
+
   const removeFile = () => {
     setPdfFile(null);
     setSelectedPages([]);
@@ -327,7 +332,6 @@ const PDFRemover: React.FC = () => {
       const arrayBuffer = await pdfFile.file.arrayBuffer();
       const originalPdf = await PDFDocument.load(arrayBuffer);
       
-      // Create new PDF with remaining pages (pages NOT in the remove list)
       const newPdf = await PDFDocument.create();
       const totalPages = originalPdf.getPageCount();
       
@@ -342,7 +346,6 @@ const PDFRemover: React.FC = () => {
         throw new Error('Cannot remove all pages from PDF');
       }
 
-      // Copy the pages we want to keep
       const copiedPages = await newPdf.copyPages(originalPdf, pagesToKeep.map(p => p - 1));
       copiedPages.forEach(page => newPdf.addPage(page));
 
@@ -376,173 +379,171 @@ const PDFRemover: React.FC = () => {
   };
 
   return (
-    <div className="w-full">
-      <div className="flex flex-col lg:flex-row gap-8 h-full">
-        {/* Left Side - Upload and Controls */}
-        <div className="lg:w-96 flex-shrink-0">
-          <div 
-            className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
-              isDragOver 
-                ? 'border-blue-400 bg-blue-50/50' 
-                : 'border-gray-300 hover:border-gray-400 bg-white/50'
-            }`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-          >
-            {pdfFile ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-gray-200">
-                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="font-medium text-gray-800 truncate">
-                      {pdfFile.name}
+    <div className="bg-white rounded-3xl shadow-2xl shadow-red-500/10 border border-gray-200/50 backdrop-blur-sm">
+      {/* Main Content - Full Width Horizontal Layout */}
+      <div className="flex flex-col xl:flex-row min-h-[600px]">
+        {/* Left Side - Upload Area & Controls */}
+        <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-red-50/50 to-pink-50/50">
+          <div className="p-6 sm:p-8 space-y-6">
+            {/* Upload Section */}
+            <label 
+              htmlFor="pdf-upload"
+              className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer block ${
+                isDragOver 
+                  ? 'border-red-500 bg-red-50 scale-102 shadow-lg' 
+                  : 'border-gray-300 hover:border-red-400 hover:bg-gray-50/50 hover:scale-[1.02]'
+              }`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
+              {isLoading ? (
+                <div className="flex flex-col items-center">
+                  <svg className="animate-spin h-20 w-20 text-red-600 mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p className="text-xl font-semibold text-red-600">Processing PDF...</p>
+                  <p className="text-gray-500 mt-2">Please wait while we analyze your file</p>
+                </div>
+              ) : pdfFile ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center">
+                      <svg className="h-10 w-10 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                      </svg>
                     </div>
-                    <div className="text-sm text-gray-500 space-x-2">
-                      <span>{pdfFile.size}</span>
-                      <span>•</span>
-                      <span>
-                        {pdfFile.pageCount} page{pdfFile.pageCount !== 1 ? 's' : ''}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800 truncate">{pdfFile.name}</h3>
+                    <div className="flex items-center justify-center space-x-3 mt-2">
+                      <span className="text-sm text-gray-500">{pdfFile.size}</span>
+                      <span className="text-sm text-red-600 font-medium">
+                        {pdfFile.pageCount || 0} pages
                       </span>
                     </div>
                   </div>
-                </div>
-                <div className="flex space-x-3">
-                  <label htmlFor="pdf-upload" className="cursor-pointer flex-1">
-                    <div className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                  <div className="flex space-x-3">
+                    <div className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors flex-1">
                       Change File
                     </div>
-                  </label>
-                  <button
-                    onClick={removeFile}
-                    className="px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium"
-                  >
-                    Remove
-                  </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        removeFile();
+                      }}
+                      className="px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-                <input
-                  ref={fileInputRef}
-                  id="pdf-upload"
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="mb-8">
-                  <svg className="mx-auto h-20 w-20 text-red-400 mb-6" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-3">Upload Your PDF</h3>
-                  <p className="text-gray-600 text-lg leading-relaxed">
-                    Drop your PDF file here or click to browse
-                  </p>
-                </div>
-                
-                <label htmlFor="pdf-upload" className="cursor-pointer block group">
-                  <div className="bg-gradient-to-r from-red-600 to-pink-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-red-700 hover:to-pink-700 transition-all duration-200 transform group-hover:scale-105 shadow-lg">
-                    Choose File
+              ) : (
+                <div className="space-y-6">
+                  <div className="mb-8">
+                    <svg className="mx-auto h-20 w-20 text-red-400 mb-6" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-3">Upload Your PDF</h3>
+                    <p className="text-gray-600 text-lg leading-relaxed">
+                      Drop your PDF file here or click anywhere to browse
+                    </p>
                   </div>
                   <p className="text-sm text-gray-500 mt-4">
                     Single PDF file to remove pages from • Max 100MB • Drag & drop enabled
                   </p>
-                </label>
-                <input
-                  ref={fileInputRef}
-                  id="pdf-upload"
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                id="pdf-upload"
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+
+            {/* Page Selection Controls */}
+            {pdfFile && (
+              <div className="space-y-4">
+                <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Pages to Remove
+                  </h4>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Enter page numbers to remove:
+                      </label>
+                      <input
+                        type="text"
+                        value={pageRange}
+                        onChange={(e) => handlePageRangeChange(e.target.value)}
+                        placeholder="e.g., 1, 3-5, 8"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      />
+                      {pageRange && selectedPages.length > 0 && (
+                        <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <div className="flex items-center text-red-700">
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            <span className="text-sm font-medium">
+                              Will remove {selectedPages.length} page{selectedPages.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <div className="text-sm text-red-600 mt-1">
+                            Pages: {selectedPages.join(', ')}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <div>• Enter individual pages: 1, 5, 10</div>
+                      <div>• Enter page ranges: 1-5, 8-12</div>
+                      <div>• Combine both: 1, 3-5, 8, 10-15</div>
+                      <div>• Click pages in the preview to select them</div>
+                      <div className="text-orange-600 font-medium">⚠️ At least one page must remain in the PDF</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Remove Button */}
+                <button
+                  onClick={() => removePagesFromPDF(pageRange)}
+                  disabled={isLoading || !pageRange.trim() || selectedPages.length === 0 || selectedPages.length >= (pdfFile.pageCount || 0)}
+                  className={`w-full px-6 py-4 rounded-xl font-bold text-lg transition-all duration-200 ${
+                    isLoading || !pageRange.trim() || selectedPages.length === 0 || selectedPages.length >= (pdfFile.pageCount || 0)
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-gradient-to-r from-red-600 to-pink-600 text-white hover:from-red-700 hover:to-pink-700 transform hover:scale-105 shadow-xl'
+                  }`}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Removing Pages...
+                    </div>
+                  ) : (
+                    <span className="flex items-center justify-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Remove {selectedPages.length} Page{selectedPages.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </button>
               </div>
             )}
           </div>
-
-          {/* Page Selection Controls */}
-          {pdfFile && (
-            <div className="mt-6 space-y-4">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Pages to Remove
-                </h4>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Enter page numbers to remove:
-                    </label>
-                    <input
-                      type="text"
-                      value={pageRange}
-                      onChange={(e) => handlePageRangeChange(e.target.value)}
-                      placeholder="e.g., 1, 3-5, 8"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    />
-                    {pageRange && selectedPages.length > 0 && (
-                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="flex items-center text-red-700">
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                          </svg>
-                          <span className="text-sm">
-                            Will remove {selectedPages.length} page{selectedPages.length !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                        <div className="text-xs text-red-600 mt-1">
-                          Remaining: {(pdfFile.pageCount || 0) - selectedPages.length} page{((pdfFile.pageCount || 0) - selectedPages.length) !== 1 ? 's' : ''}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-500 space-y-1">
-                    <p><strong>How to use:</strong></p>
-                    <p>• Single pages: <span className="font-mono bg-gray-100 px-1 rounded">1, 5, 10</span></p>
-                    <p>• Page ranges: <span className="font-mono bg-gray-100 px-1 rounded">1-5, 10-15</span></p>
-                    <p>• Mixed: <span className="font-mono bg-gray-100 px-1 rounded">1-3, 7, 10-12</span></p>
-                    <p>• Or simply click pages above to select them</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Remove Button */}
-              <button
-                onClick={() => removePagesFromPDF(pageRange)}
-                disabled={isLoading || !pageRange.trim() || selectedPages.length === 0 || selectedPages.length >= (pdfFile.pageCount || 0)}
-                className={`w-full px-6 py-4 rounded-xl font-bold text-lg transition-all duration-200 ${
-                  isLoading || !pageRange.trim() || selectedPages.length === 0 || selectedPages.length >= (pdfFile.pageCount || 0)
-                    ? 'bg-gray-400 text-white cursor-not-allowed'
-                    : 'bg-gradient-to-r from-red-600 to-pink-600 text-white hover:from-red-700 hover:to-pink-700 transform hover:scale-105 shadow-xl'
-                }`}
-              >
-                {isLoading ? (
-                  <div className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Removing Pages...
-                  </div>
-                ) : (
-                  <span className="flex items-center justify-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Remove {selectedPages.length} Page{selectedPages.length !== 1 ? 's' : ''}
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Right Side - Pages Grid */}
@@ -554,12 +555,11 @@ const PDFRemover: React.FC = () => {
                   <h3 className="text-2xl font-bold text-gray-800 mb-2">
                     Select Pages to Remove ({pdfFile?.pageCount || 0} total pages)
                   </h3>
-                  <p className="text-gray-600">
-                    Click pages to select them for removal
-                    {selectedPages.length > 0 && (
-                      <span className="text-red-600 ml-2">• {selectedPages.length} selected for removal</span>
-                    )}
-                  </p>
+                  {selectedPages.length > 0 && (
+                    <p className="text-red-600 font-medium">
+                      {selectedPages.length} page{selectedPages.length !== 1 ? 's' : ''} selected for removal
+                    </p>
+                  )}
                 </div>
                 {selectedPages.length > 0 && (
                   <button
@@ -567,11 +567,8 @@ const PDFRemover: React.FC = () => {
                       setSelectedPages([]);
                       setPageRange('');
                     }}
-                    className="px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium flex items-center gap-2"
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
                     Clear Selection
                   </button>
                 )}
@@ -580,93 +577,81 @@ const PDFRemover: React.FC = () => {
               {/* Pages Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6">
                 {pages.map((page) => (
-                  <div 
-                    key={page.pageNumber === -1 ? 'summary' : page.pageNumber}
-                    onClick={() => page.pageNumber !== -1 && handlePageClick(page.pageNumber)}
-                    className={`group relative rounded-2xl transition-all duration-200 ${
-                      page.pageNumber === -1 
-                        ? 'cursor-default'
-                        : `cursor-pointer hover:shadow-xl ${
-                            selectedPages.includes(page.pageNumber)
-                            ? 'ring-4 ring-red-400 ring-opacity-75 shadow-xl'
-                            : 'hover:shadow-lg'
-                          }`
-                    }`}
-                  >
-                    {/* Selection Checkbox */}
-                    {page.pageNumber !== -1 && (
-                      <div className="absolute -top-2 -right-2 z-20">
-                        <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shadow-lg transition-all ${
-                          selectedPages.includes(page.pageNumber)
-                            ? 'bg-red-500 border-red-500 text-white'
-                            : 'bg-white border-gray-300 hover:border-red-400'
-                        }`}>
-                          {selectedPages.includes(page.pageNumber) && (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  <div key={page.pageNumber} className="relative group">
+                    {page.pageNumber === -1 ? (
+                      // Summary card for remaining pages
+                      <div className="bg-gray-100 border-2 border-gray-300 rounded-xl p-4 text-center">
+                        <div className="aspect-[3/4] flex items-center justify-center bg-gray-200 rounded-lg mb-3">
+                          <div className="text-center">
+                            <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
+                            <div className="text-sm font-medium text-gray-600">
+                              Pages 101-{pdfFile?.pageCount}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {(pdfFile?.pageCount || 0) - 100} more pages
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500 text-center">
+                          Use page range input to select
+                        </div>
+                      </div>
+                    ) : (
+                      // Regular page thumbnail
+                      <div 
+                        onClick={() => handlePageClick(page.pageNumber)}
+                        className={`relative bg-white border-2 rounded-xl p-3 transition-all duration-200 cursor-pointer hover:shadow-lg ${
+                          selectedPages.includes(page.pageNumber) 
+                            ? 'border-red-500 bg-red-50 ring-2 ring-red-200' 
+                            : 'border-gray-200 hover:border-red-300'
+                        }`}
+                      >
+                        {/* Selection overlay */}
+                        {selectedPages.includes(page.pageNumber) && (
+                          <div className="absolute inset-0 bg-red-500/20 rounded-xl flex items-center justify-center z-10">
+                            <div className="bg-red-500 text-white rounded-full p-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Page number badge */}
+                        <div className="absolute -top-2 -left-2 w-8 h-8 bg-gray-700 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-20">
+                          {page.pageNumber}
+                        </div>
+                        
+                        {/* Thumbnail */}
+                        <div className="aspect-[3/4] mb-3 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                          {page.thumbnail ? (
+                            <img 
+                              src={page.thumbnail} 
+                              alt={`Page ${page.pageNumber}`}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400"></div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Page info */}
+                        <div className="text-center">
+                          <div className="text-sm font-medium text-gray-800 truncate">
+                            Page {page.pageNumber}
+                          </div>
+                          {selectedPages.includes(page.pageNumber) && (
+                            <div className="text-xs text-red-600 font-medium mt-1">
+                              Selected for removal
+                            </div>
                           )}
                         </div>
                       </div>
                     )}
-
-                    {/* Page content */}
-                    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                      {page.pageNumber === -1 ? (
-                        // Summary card for remaining pages
-                        <div className="aspect-[3/4] flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100">
-                          <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <div className="text-center">
-                            <div className="text-lg font-semibold text-gray-700 mb-1">
-                              +{(pdfFile?.pageCount || 0) - 100} more
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Pages 101-{pdfFile?.pageCount || 0}
-                            </div>
-                            <div className="text-xs text-gray-400 mt-2">
-                              Use page numbers to select
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="aspect-[3/4] relative">
-                          {page.thumbnail ? (
-                            page.thumbnail === 'SUMMARY_CARD' ? null : (
-                              <img 
-                                src={page.thumbnail} 
-                                alt={`Page ${page.pageNumber}`}
-                                className="w-full h-full object-contain"
-                                onError={(e) => {
-                                  console.error(`Error loading thumbnail for page ${page.pageNumber}`);
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                }}
-                              />
-                            )
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
-                            </div>
-                          )}
-
-                          {/* Page number overlay */}
-                          <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
-                            {page.pageNumber}
-                          </div>
-
-                          {/* Remove overlay when selected */}
-                          {selectedPages.includes(page.pageNumber) && (
-                            <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
-                              <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                                Will Remove
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -674,7 +659,7 @@ const PDFRemover: React.FC = () => {
           ) : pdfFile ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
                 <p className="text-gray-600">Loading pages...</p>
               </div>
             </div>

@@ -180,20 +180,19 @@ const PDFMerger: React.FC = () => {
     if (!files) return;
     await processFiles(files);
   };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
@@ -299,13 +298,13 @@ const PDFMerger: React.FC = () => {
       <div className="flex flex-col xl:flex-row min-h-[600px]">{/* Left Side - Upload Area & Controls */}
         <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
           <div className="p-6 sm:p-8 space-y-6">
-            
-            {/* Upload Section */}
-            <div 
-              className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
+              {/* Upload Section */}
+            <label
+              htmlFor="pdf-upload"
+              className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer block ${
                 isDragOver 
                   ? 'border-blue-500 bg-blue-50 scale-102 shadow-lg' 
-                  : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50/50'
+                  : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50/50 hover:scale-[1.02]'
               }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -328,29 +327,24 @@ const PDFMerger: React.FC = () => {
                     </svg>
                     <h3 className="text-2xl font-bold text-gray-800 mb-3">Upload PDF Files</h3>
                     <p className="text-gray-600 text-lg leading-relaxed">
-                      Drop multiple PDF files here or click to browse
+                      Drop multiple PDF files here or click anywhere to browse
                     </p>
                   </div>
-                    <label htmlFor="pdf-upload" className="cursor-pointer block group">
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform group-hover:scale-105 shadow-lg">
-                      Choose Files
-                    </div>
-                    <p className="text-sm text-gray-500 mt-4">
-                      Multiple PDF files • Drag & drop enabled • Max 100MB per file
-                    </p>
-                  </label>
-                  <input
-                    ref={fileInputRef}
-                    id="pdf-upload"
-                    type="file"
-                    multiple
-                    accept=".pdf,application/pdf"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
+                  <p className="text-sm text-gray-500 mt-4">
+                    Multiple PDF files • Max 100MB per file • Drag & drop enabled
+                  </p>
                 </div>
               )}
-            </div>
+              <input
+                ref={fileInputRef}
+                id="pdf-upload"
+                type="file"
+                multiple
+                accept=".pdf,application/pdf"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
 
             {/* Merge Controls */}
             {pdfFiles.length > 0 && (

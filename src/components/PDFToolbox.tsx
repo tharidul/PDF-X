@@ -2,20 +2,21 @@ import React, { useState } from 'react';
 import PDFMerger from './PDFMerger';
 import PDFSplitter from './PDFSplitter';
 import PDFRemover from './PDFRemover';
+import Footer from './Footer';
 
 const PDFToolbox: React.FC = () => {
   const [activeMode, setActiveMode] = useState<'merge' | 'split' | 'remove'>('merge');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">      {/* Mobile-Optimized Header Navigation */}
-      <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">      {/* Mobile-Optimized Header Navigation with Enhanced Glass Effect */}
+      <header className="bg-white/20 backdrop-blur-xl border-b border-white/30 sticky top-0 z-50 shadow-lg shadow-black/5">
         <div className="w-full px-4 sm:px-6 py-3 sm:py-4">
           {/* Mobile Layout: Stacked */}
           <div className="flex flex-col space-y-3 sm:hidden">
             {/* Logo and Title - Mobile */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/30 backdrop-blur-sm">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
@@ -26,26 +27,24 @@ const PDFToolbox: React.FC = () => {
                   </h1>
                   <p className="text-xs text-gray-500">PDF Tools</p>
                 </div>
-              </div>
-              {/* Feature badges - Mobile */}
+              </div>              {/* Feature badges - Mobile with Glass Effect */}
               <div className="flex items-center space-x-1">
-                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                <span className="px-2 py-1 bg-green-100/80 backdrop-blur-sm text-green-700 text-xs font-medium rounded-full border border-green-200/50 shadow-sm">
                   Fast
                 </span>
-                <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                <span className="px-2 py-1 bg-blue-100/80 backdrop-blur-sm text-blue-700 text-xs font-medium rounded-full border border-blue-200/50 shadow-sm">
                   Free
                 </span>
               </div>
             </div>
-            
-            {/* Mode Toggle - Mobile */}
-            <div className="flex bg-gray-100/70 backdrop-blur-sm rounded-xl p-1 shadow-lg border border-gray-200/50">
+              {/* Mode Toggle - Mobile with Enhanced Glass Effect */}
+            <div className="flex bg-white/30 backdrop-blur-md rounded-xl p-1 shadow-lg shadow-black/10 border border-white/40">
               <button
                 onClick={() => setActiveMode('merge')}
                 className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all duration-300 ease-out ${
                   activeMode === 'merge' 
-                    ? 'bg-white text-blue-600 shadow-md border border-blue-100' 
-                    : 'text-gray-600'
+                    ? 'bg-white/90 backdrop-blur-sm text-blue-600 shadow-md shadow-blue-500/20 border border-blue-100/60' 
+                    : 'text-gray-600 hover:bg-white/40 hover:backdrop-blur-sm'
                 }`}
               >
                 <span className="flex items-center justify-center space-x-1">
@@ -54,13 +53,12 @@ const PDFToolbox: React.FC = () => {
                   </svg>
                   <span>Merge</span>
                 </span>
-              </button>
-              <button
+              </button>              <button
                 onClick={() => setActiveMode('split')}
                 className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all duration-300 ease-out ${
                   activeMode === 'split' 
-                    ? 'bg-white text-blue-600 shadow-md border border-blue-100' 
-                    : 'text-gray-600'
+                    ? 'bg-white/90 backdrop-blur-sm text-green-600 shadow-md shadow-green-500/20 border border-green-100/60' 
+                    : 'text-gray-600 hover:bg-white/40 hover:backdrop-blur-sm'
                 }`}
               >
                 <span className="flex items-center justify-center space-x-1">
@@ -69,13 +67,12 @@ const PDFToolbox: React.FC = () => {
                   </svg>
                   <span>Split</span>
                 </span>
-              </button>
-              <button
+              </button>              <button
                 onClick={() => setActiveMode('remove')}
                 className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all duration-300 ease-out ${
                   activeMode === 'remove' 
-                    ? 'bg-white text-red-600 shadow-md border border-red-100' 
-                    : 'text-gray-600'
+                    ? 'bg-white/90 backdrop-blur-sm text-red-600 shadow-md shadow-red-500/20 border border-red-100/60' 
+                    : 'text-gray-600 hover:bg-white/40 hover:backdrop-blur-sm'
                 }`}
               >
                 <span className="flex items-center justify-center space-x-1">
@@ -93,7 +90,7 @@ const PDFToolbox: React.FC = () => {
             {/* Logo and Title - Desktop */}
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 backdrop-blur-sm">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
@@ -105,15 +102,15 @@ const PDFToolbox: React.FC = () => {
                   <p className="text-sm text-gray-500">Professional PDF Tools</p>
                 </div>
               </div>
-            </div>            {/* Mode Toggle - Desktop */}
+            </div>            {/* Mode Toggle - Desktop with Enhanced Glass Effect */}
             <div className="flex-1 flex justify-center">
-              <div className="inline-flex bg-gray-100/70 backdrop-blur-sm rounded-2xl p-1.5 shadow-lg border border-gray-200/50 space-x-8">
+              <div className="inline-flex bg-white/30 backdrop-blur-md rounded-2xl p-1.5 shadow-lg shadow-black/10 border border-white/40 space-x-8">
                 <button
                   onClick={() => setActiveMode('merge')}
                   className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ease-out ${
                     activeMode === 'merge' 
-                      ? 'bg-white text-blue-600 shadow-lg shadow-blue-500/20 transform scale-105 border border-blue-100' 
-                      : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                      ? 'bg-white/90 backdrop-blur-sm text-blue-600 shadow-lg shadow-blue-500/30 transform scale-105 border border-blue-100/60' 
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-white/50 hover:backdrop-blur-sm'
                   }`}
                 >
                   <span className="flex items-center space-x-2">
@@ -122,13 +119,12 @@ const PDFToolbox: React.FC = () => {
                     </svg>
                     <span>Merge</span>
                   </span>
-                </button>
-                <button
+                </button>                <button
                   onClick={() => setActiveMode('split')}
                   className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ease-out ${
                     activeMode === 'split' 
-                      ? 'bg-white text-blue-600 shadow-lg shadow-blue-500/20 transform scale-105 border border-blue-100' 
-                      : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                      ? 'bg-white/90 backdrop-blur-sm text-green-600 shadow-lg shadow-green-500/30 transform scale-105 border border-green-100/60' 
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-white/50 hover:backdrop-blur-sm'
                   }`}
                 >
                   <span className="flex items-center space-x-2">
@@ -137,13 +133,12 @@ const PDFToolbox: React.FC = () => {
                     </svg>
                     <span>Split</span>
                   </span>
-                </button>
-                <button
+                </button>                <button
                   onClick={() => setActiveMode('remove')}
                   className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ease-out ${
                     activeMode === 'remove' 
-                      ? 'bg-white text-red-600 shadow-lg shadow-red-500/20 transform scale-105 border border-red-100' 
-                      : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                      ? 'bg-white/90 backdrop-blur-sm text-red-600 shadow-lg shadow-red-500/30 transform scale-105 border border-red-100/60' 
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-white/50 hover:backdrop-blur-sm'
                   }`}
                 >
                   <span className="flex items-center space-x-2">
@@ -154,18 +149,16 @@ const PDFToolbox: React.FC = () => {
                   </span>
                 </button>
               </div>
-            </div>
-
-            {/* Right side - Feature badges - Desktop */}
+            </div>            {/* Right side - Feature badges - Desktop with Glass Effect */}
             <div className="flex items-center space-x-3">
               <div className="hidden md:flex items-center space-x-2">
-                <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                <span className="px-3 py-1 bg-green-100/80 backdrop-blur-sm text-green-700 text-xs font-medium rounded-full border border-green-200/50 shadow-sm">
                   Fast
                 </span>
-                <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                <span className="px-3 py-1 bg-blue-100/80 backdrop-blur-sm text-blue-700 text-xs font-medium rounded-full border border-blue-200/50 shadow-sm">
                   Secure
                 </span>
-                <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                <span className="px-3 py-1 bg-purple-100/80 backdrop-blur-sm text-purple-700 text-xs font-medium rounded-full border border-purple-200/50 shadow-sm">
                   Free
                 </span>
               </div>
@@ -273,36 +266,10 @@ const PDFToolbox: React.FC = () => {
 
         {/* Content - Full Width */}
         <div className="w-full">
-          {activeMode === 'merge' ? <PDFMerger /> : activeMode === 'split' ? <PDFSplitter /> : <PDFRemover />}
-        </div>
-      </main>      {/* Mobile-Optimized Footer */}
-      <footer className="w-full mt-12 sm:mt-16 border-t border-gray-200/50 bg-white/50 backdrop-blur-sm">
-        <div className="px-4 sm:px-6 py-6 sm:py-8">
-          <div className="flex flex-col items-center justify-center space-y-4 sm:flex-row sm:justify-between sm:space-y-0">
-            <div className="flex flex-col items-center space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div className="text-center sm:text-left">
-                <p className="text-gray-800 font-semibold">PDF-X</p>
-                <p className="text-gray-500 text-sm">Professional PDF Processing</p>
-              </div>
-            </div>
-            
-            <div className="flex flex-col items-center space-y-2 text-sm text-gray-600 text-center sm:text-right">
-              <span>© 2025 PDF-X. All processing done locally in your browser.</span>
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-                <span>Secure & Private</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+          {activeMode === 'merge' ? <PDFMerger /> : activeMode === 'split' ? <PDFSplitter /> : <PDFRemover />}        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 };

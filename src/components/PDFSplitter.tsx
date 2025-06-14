@@ -23,11 +23,9 @@ interface PageInfo {
 const PDFSplitter: React.FC = () => {
   const [pdfFile, setPdfFile] = useState<PDFFile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [pageRange, setPageRange] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);  const [pageRange, setPageRange] = useState('');
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
-  const [thumbnailErrors, setThumbnailErrors] = useState<{[page: number]: string}>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,10 +112,8 @@ const PDFSplitter: React.FC = () => {
       await renderTask.promise;
       
       console.log(`Successfully generated thumbnail for page ${pageNumber}`);
-      return canvas.toDataURL('image/png', 0.8);
-    } catch (error: any) {
+      return canvas.toDataURL('image/png', 0.8);    } catch (error: any) {
       console.error(`Error generating page thumbnail for page ${pageNumber}:`, error);
-      setThumbnailErrors(prev => ({ ...prev, [pageNumber]: error?.message || 'Unknown error' }));
       
       // Only return placeholder if PDF rendering completely fails
       return new Promise((resolve) => {
@@ -256,19 +252,19 @@ const PDFSplitter: React.FC = () => {
     if (!files || files.length === 0) return;
     await processFile(files[0]); // Only process the first file
   };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
   };
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement | HTMLLabelElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
@@ -277,7 +273,7 @@ const PDFSplitter: React.FC = () => {
     if (files.length > 0) {
       await processFile(files[0]); // Only process the first file
     }
-  };  const removeFile = () => {
+  };const removeFile = () => {
     setPdfFile(null);
     setPageRange('');
     setSelectedPages([]);
@@ -505,19 +501,21 @@ const PDFSplitter: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-2xl shadow-blue-500/10 border border-gray-200/50 backdrop-blur-sm">
+    <div className="bg-white rounded-3xl shadow-2xl shadow-green-500/10 border border-gray-200/50 backdrop-blur-sm">
       {/* Main Content - Full Width Horizontal Layout */}
       <div className="flex flex-col xl:flex-row min-h-[600px]">
         {/* Left Side - Upload Area & Controls */}
-        <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
-          <div className="p-6 sm:p-8 space-y-6">            {/* Upload Section with Current File Preview */}
-            <div 
-              className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
+        <div className="w-full xl:w-96 flex-shrink-0 border-b xl:border-b-0 xl:border-r border-gray-200/50 bg-gradient-to-br from-green-50/50 to-teal-50/50">
+          <div className="p-6 sm:p-8 space-y-6">
+            {/* Upload Section with Current File Preview */}
+            <label
+              htmlFor="pdf-upload"
+              className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer block ${
                 isDragOver 
-                  ? 'border-blue-500 bg-blue-50 scale-102 shadow-lg' 
+                  ? 'border-green-500 bg-green-50 scale-102 shadow-lg' 
                   : pdfFile
                   ? 'border-green-400 bg-green-50'
-                  : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50/50'
+                  : 'border-gray-300 hover:border-green-400 hover:bg-gray-50/50 hover:scale-[1.02]'
               }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -525,11 +523,11 @@ const PDFSplitter: React.FC = () => {
             >
               {isLoading ? (
                 <div className="flex flex-col items-center">
-                  <svg className="animate-spin h-20 w-20 text-blue-600 mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-20 w-20 text-green-600 mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <p className="text-xl font-semibold text-blue-600">Processing PDF...</p>
+                  <p className="text-xl font-semibold text-green-600">Processing PDF...</p>
                   <p className="text-gray-500 mt-2">Please wait while we analyze your file</p>
                 </div>
               ) : pdfFile ? (
@@ -551,60 +549,47 @@ const PDFSplitter: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex space-x-3">
-                    <label htmlFor="pdf-upload" className="cursor-pointer flex-1">
-                      <div className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                        Change File
-                      </div>
-                    </label>
+                    <div className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors flex-1">
+                      Change File
+                    </div>
                     <button
-                      onClick={removeFile}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        removeFile();
+                      }}
                       className="px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium"
                     >
                       Remove
                     </button>
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    id="pdf-upload"
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
                 </div>
-              ) : (
-                <div className="space-y-6">
+              ) : (                <div className="space-y-6">
                   <div className="mb-8">
-                    <svg className="mx-auto h-20 w-20 text-blue-400 mb-6" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <svg className="mx-auto h-20 w-20 text-green-400 mb-6" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                       <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <h3 className="text-2xl font-bold text-gray-800 mb-3">Upload Your PDF</h3>
                     <p className="text-gray-600 text-lg leading-relaxed">
-                      Drop your PDF file here or click to browse
+                      Drop your PDF file here or click anywhere to browse
                     </p>
                   </div>
-                  
-                  <label htmlFor="pdf-upload" className="cursor-pointer block group">
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform group-hover:scale-105 shadow-lg">
-                      Choose File
-                    </div>                    <p className="text-sm text-gray-500 mt-4">
-                      Single PDF file to split • Max 100MB • Drag & drop enabled
-                    </p>
-                  </label>
-                  <input
-                    ref={fileInputRef}
-                    id="pdf-upload"
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
+                  <p className="text-sm text-gray-500 mt-4">
+                    Single PDF file to split • Max 100MB • Drag & drop enabled
+                  </p>
                 </div>
               )}
-            </div>            {/* Split Controls */}
-            {pdfFile && (
-              <div className="border-2 border-blue-200 rounded-2xl p-6 bg-gradient-to-br from-blue-50 to-indigo-50">
-                <h4 className="font-bold text-blue-800 mb-4 flex items-center text-lg">
+              <input
+                ref={fileInputRef}
+                id="pdf-upload"
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+            {/* Split Controls */}
+            {pdfFile && (              <div className="border-2 border-green-200 rounded-2xl p-6 bg-gradient-to-br from-green-50 to-teal-50">
+                <h4 className="font-bold text-green-800 mb-4 flex items-center text-lg">
                   <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                   </svg>
@@ -621,12 +606,12 @@ const PDFSplitter: React.FC = () => {
                     value={pageRange}
                     onChange={(e) => handlePageRangeChange(e.target.value)}
                     placeholder="e.g., 1-3, 5, 7-10"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
                   />
                   <div className="mt-3 space-y-2">
                     {selectedPages.length > 0 && (
                       <div>
-                        <p className="text-sm text-blue-600 font-medium">
+                        <p className="text-sm text-green-600 font-medium">
                           {selectedPages.length} page{selectedPages.length !== 1 ? 's' : ''} selected
                         </p>                        {/* Warning for large extractions */}
                         {selectedPages.length > 200 && (
@@ -706,7 +691,7 @@ const PDFSplitter: React.FC = () => {
                   <p className="text-gray-600">
                     Click pages to select them for extraction
                     {selectedPages.length > 0 && (
-                      <span className="text-blue-600 ml-2">• {selectedPages.length} selected</span>
+                      <span className="text-green-600 ml-2">• {selectedPages.length} selected</span>
                     )}
                   </p>
                 </div>
@@ -724,22 +709,23 @@ const PDFSplitter: React.FC = () => {
                     Clear Selection
                   </button>
                 )}
-              </div>
-                {/* Pages Grid - Optimized for full width with ilovepdf-style layout */}
+              </div>              {/* Pages Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6">
-                {pages.map((page) => (                  <div 
+                {pages.map((page) => (
+                  <div 
                     key={page.pageNumber === -1 ? 'summary' : page.pageNumber}
                     onClick={() => page.pageNumber !== -1 && handlePageClick(page.pageNumber)}
                     className={`group relative rounded-2xl transition-all duration-200 ${
                       page.pageNumber === -1 
-                        ? 'cursor-default' // Summary card is not clickable
+                        ? 'cursor-default'
                         : `cursor-pointer hover:shadow-xl ${
                             selectedPages.includes(page.pageNumber)
                             ? 'ring-4 ring-green-400 ring-opacity-75 shadow-xl'
                             : 'hover:shadow-lg'
                           }`
                     }`}
-                  >                    {/* Selection Checkbox - Top Right */}
+                  >
+                    {/* Selection Checkbox */}
                     {page.pageNumber !== -1 && (
                       <div className="absolute -top-2 -right-2 z-20">
                         <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shadow-lg transition-all ${
@@ -748,59 +734,68 @@ const PDFSplitter: React.FC = () => {
                             : 'bg-white border-gray-300 hover:border-green-400'
                         }`}>
                           {selectedPages.includes(page.pageNumber) && (
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
                           )}
                         </div>
                       </div>
-                    )}{/* Page Number Badge - Top Left */}
-                    {page.pageNumber !== -1 && (
-                      <div className="absolute -top-2 -left-2 w-8 h-8 bg-gray-700 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
-                        {page.pageNumber}
-                      </div>
                     )}
-                    
-                    {/* Page Thumbnail Container */}
-                    <div className="relative bg-white rounded-2xl border-2 border-gray-200 overflow-hidden shadow-sm">                      <div className="aspect-[3/4] flex items-center justify-center">
-                        {page.thumbnail === 'SUMMARY_CARD' ? (
-                          // Summary card for remaining pages
-                          <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 flex flex-col items-center justify-center p-4">                            <div className="w-16 h-16 bg-blue-500 text-white rounded-full flex items-center justify-center mb-3 shadow-md">
-                              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </div><span className="text-sm font-bold text-blue-800 text-center">
-                              {(pdfFile?.pageCount || 0) - 100} More Pages
-                            </span>                            <span className="text-xs text-blue-600 text-center mt-1">
+
+                    {/* Page content */}
+                    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                      {page.pageNumber === -1 ? (
+                        // Summary card for remaining pages
+                        <div className="aspect-[3/4] flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100">
+                          <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <div className="text-center">
+                            <div className="text-lg font-semibold text-gray-700 mb-1">
+                              +{(pdfFile?.pageCount || 0) - 100} more
+                            </div>
+                            <div className="text-xs text-gray-500">
                               Pages 101-{pdfFile?.pageCount || 0}
-                            </span>
+                            </div>
+                            <div className="text-xs text-gray-400 mt-2">
+                              Use page numbers to select
+                            </div>
                           </div>
-                        ) : page.thumbnail && page.thumbnail !== 'NO_THUMBNAIL' ? (
-                          <img 
-                            src={page.thumbnail} 
-                            alt={`Page ${page.pageNumber}`}
-                            className="w-full h-full object-contain bg-white"
-                          />
-                        ) : (
-                          // Loading state for pages 1-50
-                          <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center">
-                            <svg className="w-12 h-12 text-gray-300 mb-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span className="text-xs text-gray-400">Loading...</span>
-                            {thumbnailErrors[page.pageNumber] && (
-                              <span className="text-xs text-red-400 mt-1">{thumbnailErrors[page.pageNumber]}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                        {/* Page Number Label at Bottom */}
-                      {page.pageNumber !== -1 && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2">
-                          <span className="text-white text-xs font-medium">
-                            Page {page.pageNumber}
-                          </span>
                         </div>
+                      ) : (
+                        <div className="aspect-[3/4] relative">
+                          {page.thumbnail ? (
+                            page.thumbnail === 'SUMMARY_CARD' ? null : (
+                              <img 
+                                src={page.thumbnail} 
+                                alt={`Page ${page.pageNumber}`}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  console.error(`Error loading thumbnail for page ${page.pageNumber}`);
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                }}
+                              />
+                            )
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+                            </div>
+                          )}
+
+                          {/* Page number overlay */}
+                          <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
+                            {page.pageNumber}
+                          </div>
+
+                          {/* Split overlay when selected */}
+                          {selectedPages.includes(page.pageNumber) && (
+                            <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                              <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                                Will Split
+                              </div>
+                            </div>
+                          )}                        </div>
                       )}
                     </div>
                   </div>
