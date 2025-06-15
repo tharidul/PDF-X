@@ -15,21 +15,20 @@ const LoadingSpinner = () => (
 );
 
 const PDFToolbox: React.FC = () => {
-  const [activeMode, setActiveMode] = useState<'merge' | 'split' | 'remove'>('merge');
-  return (
+  const [activeMode, setActiveMode] = useState<'merge' | 'split' | 'remove'>('merge');  return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex flex-col">
       {/* Mobile-Optimized Header Navigation with Enhanced Glass Effect */}
       <header className="bg-white/20 backdrop-blur-xl border-b border-white/30 sticky top-0 z-50 shadow-lg shadow-black/5 flex-shrink-0">
         <div className="w-full px-4 sm:px-6 py-3 sm:py-4">
           {/* Mobile Layout: Stacked */}
-          <div className="flex flex-col space-y-3 sm:hidden">
-            {/* Logo and Title - Mobile */}
+          <div className="flex flex-col space-y-3 sm:hidden">            {/* Logo and Title - Mobile */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/30 backdrop-blur-sm">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+              <div className="flex items-center space-x-2">                <div className="w-12 h-12 flex items-center justify-center p-1">
+                  <img 
+                    src="/images/favicon.ico" 
+                    alt="PDF-X Logo" 
+                    className="w-10 h-10 object-contain"
+                  />
                 </div>
                 <div>
                   <h1 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
@@ -37,14 +36,60 @@ const PDFToolbox: React.FC = () => {
                   </h1>
                   <p className="text-xs text-gray-500">PDF Tools</p>
                 </div>
-              </div>              {/* Feature badges - Mobile with Glass Effect */}
-              <div className="flex items-center space-x-1">
-                <span className="px-2 py-1 bg-green-100/80 backdrop-blur-sm text-green-700 text-xs font-medium rounded-full border border-green-200/50 shadow-sm">
-                  Fast
-                </span>
-                <span className="px-2 py-1 bg-blue-100/80 backdrop-blur-sm text-blue-700 text-xs font-medium rounded-full border border-blue-200/50 shadow-sm">
-                  Free
-                </span>
+              </div>              <div className="flex items-center space-x-2">
+                {/* Mobile Navigation Menu */}
+                <div className="relative group">
+                  <button className="flex items-center p-2 bg-white/20 backdrop-blur-md text-gray-700 rounded-lg border border-white/30">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                  
+                  {/* Mobile Dropdown */}
+                  <div className="absolute right-0 mt-2 w-48 bg-white/95 backdrop-blur-lg rounded-xl shadow-xl border border-white/50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+                    <div className="py-2">
+                      <a 
+                        href="https://lkml.live" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center px-3 py-2 text-gray-700 hover:bg-blue-50/80 hover:text-blue-600 transition-colors duration-200"
+                      >
+                        <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-md flex items-center justify-center mr-2">
+                          <span className="text-white font-bold text-xs">L</span>
+                        </div>
+                        <div className="text-sm font-medium">LKML</div>
+                      </a>
+                      <a 
+                        href="https://imgx.lkml.live" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center px-3 py-2 text-gray-700 hover:bg-green-50/80 hover:text-green-600 transition-colors duration-200"
+                      >                        <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center mr-2 p-1">
+                          <img 
+                            src="/images/ICO_IMG-X.ico" 
+                            alt="IMG-X" 
+                            className="w-4 h-4 object-contain"
+                          />
+                        </div>
+                        <div className="text-sm font-medium">IMG-X</div>
+                      </a>
+                      <a 
+                        href="https://vinci.lkml.live" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center px-3 py-2 text-gray-700 hover:bg-purple-50/80 hover:text-purple-600 transition-colors duration-200"
+                      >                        <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center mr-2 p-1">
+                          <img 
+                            src="/images/ICO_VINCI AI .ico" 
+                            alt="Vinci" 
+                            className="w-4 h-4 object-contain"
+                          />
+                        </div>
+                        <div className="text-sm font-medium">Vinci</div>
+                      </a>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
               {/* Mode Toggle - Mobile with Enhanced Glass Effect */}
@@ -61,9 +106,10 @@ const PDFToolbox: React.FC = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
                   </svg>
-                  <span>Merge</span>
-                </span>
-              </button>              <button
+                  <span>Merge</span>                </span>
+              </button>
+              
+              <button
                 onClick={() => setActiveMode('split')}
                 className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all duration-300 ease-out ${
                   activeMode === 'split' 
@@ -75,9 +121,10 @@ const PDFToolbox: React.FC = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                   </svg>
-                  <span>Split</span>
-                </span>
-              </button>              <button
+                  <span>Split</span>                </span>
+              </button>
+              
+              <button
                 onClick={() => setActiveMode('remove')}
                 className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all duration-300 ease-out ${
                   activeMode === 'remove' 
@@ -99,11 +146,12 @@ const PDFToolbox: React.FC = () => {
           <div className="hidden sm:flex items-center justify-between">
             {/* Logo and Title - Desktop */}
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 backdrop-blur-sm">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+              <div className="flex items-center space-x-3">                <div className="w-14 h-14 flex items-center justify-center p-2">
+                  <img 
+                    src="/images/favicon.ico" 
+                    alt="PDF-X Logo" 
+                    className="w-10 h-10 object-contain"
+                  />
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
@@ -127,9 +175,10 @@ const PDFToolbox: React.FC = () => {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
                     </svg>
-                    <span>Merge</span>
-                  </span>
-                </button>                <button
+                    <span>Merge</span>                  </span>
+                </button>
+                
+                <button
                   onClick={() => setActiveMode('split')}
                   className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ease-out ${
                     activeMode === 'split' 
@@ -141,9 +190,10 @@ const PDFToolbox: React.FC = () => {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                     </svg>
-                    <span>Split</span>
-                  </span>
-                </button>                <button
+                    <span>Split</span>                  </span>
+                </button>
+                
+                <button
                   onClick={() => setActiveMode('remove')}
                   className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ease-out ${
                     activeMode === 'remove' 
@@ -159,24 +209,64 @@ const PDFToolbox: React.FC = () => {
                   </span>
                 </button>
               </div>
-            </div>            {/* Right side - Feature badges - Desktop with Glass Effect */}
+            </div>            {/* Right side - Navigation and Feature badges - Desktop with Glass Effect */}
             <div className="flex items-center space-x-3">
-              <div className="hidden md:flex items-center space-x-2">
-                <span className="px-3 py-1 bg-green-100/80 backdrop-blur-sm text-green-700 text-xs font-medium rounded-full border border-green-200/50 shadow-sm">
-                  Fast
-                </span>
-                <span className="px-3 py-1 bg-blue-100/80 backdrop-blur-sm text-blue-700 text-xs font-medium rounded-full border border-blue-200/50 shadow-sm">
-                  Secure
-                </span>
-                <span className="px-3 py-1 bg-purple-100/80 backdrop-blur-sm text-purple-700 text-xs font-medium rounded-full border border-purple-200/50 shadow-sm">
-                  Free
-                </span>
-              </div>
+              {/* Navigation Menu */}
+              <div className="relative group">
+                <button className="flex items-center space-x-2 px-4 py-2 bg-white/20 backdrop-blur-md text-gray-700 hover:text-gray-900 rounded-lg border border-white/30 hover:bg-white/40 transition-all duration-200">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  <span className="text-sm font-medium">More Tools</span>
+                  <svg className="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 mt-2 w-56 bg-white/95 backdrop-blur-lg rounded-xl shadow-xl border border-white/50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+                  <div className="py-2">
+                    <a 
+                      href="https://imgx.lkml.live" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center px-4 py-3 text-gray-700 hover:bg-green-50/80 hover:text-green-600 transition-colors duration-200"
+                    >                      <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center mr-3 p-1">
+                        <img 
+                          src="/images/ICO_IMG-X.ico" 
+                          alt="IMG-X" 
+                          className="w-6 h-6 object-contain"
+                        />
+                      </div>
+                      <div>
+                        <div className="font-medium">IMG-X</div>
+                        <div className="text-xs text-gray-500">Image Tools</div>
+                      </div>
+                    </a>
+                    
+                    <a 
+                      href="https://vinci.lkml.live" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center px-4 py-3 text-gray-700 hover:bg-purple-50/80 hover:text-purple-600 transition-colors duration-200"
+                    >                      <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center mr-3 p-1">
+                        <img 
+                          src="/images/ICO_VINCI AI .ico" 
+                          alt="Vinci" 
+                          className="w-6 h-6 object-contain"
+                        />
+                      </div>
+                      <div>
+                        <div className="font-medium">Vinci</div>
+                        <div className="text-xs text-gray-500">AI Art Tools</div>
+                      </div>                    </a>
+                  </div>
+                </div></div>
             </div>
           </div>
         </div>
       </header>      {/* Mobile-Optimized Content Area */}
-      <main className="w-full px-4 sm:px-6 py-6 sm:py-8">
+      <main className="w-full px-4 sm:px-6 py-6 sm:py-8 flex-1">
         {/* Hero Section with Mode Description */}
         <div className="w-full mb-6 sm:mb-8">
           <div className="text-center max-w-4xl mx-auto">
@@ -282,8 +372,7 @@ const PDFToolbox: React.FC = () => {
           <Suspense fallback={<LoadingSpinner />}>
             {activeMode === 'merge' && <PDFMerger key="merger" />}
             {activeMode === 'split' && <PDFSplitter key="splitter" />}
-            {activeMode === 'remove' && <PDFRemover key="remover" />}
-          </Suspense>
+            {activeMode === 'remove' && <PDFRemover key="remover" />}          </Suspense>
         </div>
       </main>
 

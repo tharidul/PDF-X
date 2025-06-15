@@ -755,9 +755,10 @@ const PDFSplitter: React.FC = () => {
                               <span className="text-xs text-yellow-800">
                                 <strong>Large extraction:</strong> Extracting {selectedPages.length} pages may take several minutes and use significant memory.
                               </span>
-                            </div>
-                          </div>
-                        )}                        {/* Warning for large files */}
+                            </div>                          </div>
+                        )}
+                        
+                        {/* Warning for large files */}
                         {pdfFile && pdfFile.file.size > 75 * 1024 * 1024 && selectedPages.length > 50 && (
                           <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg">
                             <div className="flex items-start">
