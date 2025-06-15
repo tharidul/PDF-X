@@ -325,8 +325,7 @@ const PDFRemover: React.FC = () => {
       isProcessingRef.current = false;
     }
   };
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const processFile = async (file: File) => {
     if (!file) return;
 
     if (file.size > 100 * 1024 * 1024) {
@@ -372,33 +371,38 @@ const PDFRemover: React.FC = () => {
       setIsLoading(false);
     }
   };
-  const handleDrop = (event: React.DragEvent) => {
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      await processFile(file);
+    }
+  };
+
+  const handleDrop = async (event: React.DragEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     setIsDragOver(false);
     
     const files = event.dataTransfer.files;
     if (files.length > 0) {
       const file = files[0];
       if (file.type === 'application/pdf') {
-        if (fileInputRef.current) {
-          const dt = new DataTransfer();
-          dt.items.add(file);
-          fileInputRef.current.files = dt.files;
-          handleFileUpload({ target: { files: dt.files } } as React.ChangeEvent<HTMLInputElement>);
-        }
+        await processFile(file);
       } else {
         toast.error('Please upload a PDF file');
       }
     }
   };
-
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     setIsDragOver(true);
   };
 
   const handleDragLeave = (event: React.DragEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     setIsDragOver(false);
   };
   const removeFile = () => {
