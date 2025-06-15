@@ -119,22 +119,20 @@ const UploadCard: React.FC<UploadCardProps> = ({
   const handleClick = () => {
     fileInputRef.current?.click();
   };  return (
-    <div className={`group relative w-full max-w-md mx-auto ${className}`}>
-      <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${currentTheme.bgGradient} backdrop-blur-xl shadow-2xl border border-white/30 transition-all duration-300 hover:-translate-y-2 hover:${currentTheme.shadowColor}`}>
+    <div className={`group relative w-full max-w-md mx-auto h-[450px] ${className}`}>
+      <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${currentTheme.bgGradient} backdrop-blur-xl shadow-2xl border border-white/30 transition-all duration-300 hover:-translate-y-2 hover:${currentTheme.shadowColor} h-full`}>
         {/* Vibrant Gradient Backgrounds */}
         <div className={`absolute -left-16 -top-16 h-32 w-32 rounded-full bg-gradient-to-br ${currentTheme.ballGradient1} blur-2xl transition-all duration-500 group-hover:scale-150 group-hover:opacity-80`}></div>
         <div className={`absolute -right-16 -bottom-16 h-32 w-32 rounded-full bg-gradient-to-br ${currentTheme.ballGradient2} blur-2xl transition-all duration-500 group-hover:scale-150 group-hover:opacity-80`}></div>
 
-        <div className="relative p-6">          {/* Header Section - Enhanced Glass Theme */}
+        <div className="relative p-5 h-full flex flex-col">          {/* Header Section - Enhanced Glass Theme */}
           <div className="flex items-center justify-between">
             <div>
               <h3 className={`text-lg font-semibold ${currentTheme.titleColor}`}>{title}</h3>
               <p className={`text-sm ${currentTheme.subtitleColor} font-medium`}>{subtitle}</p>
             </div>
-          </div>
-
-          {/* Upload Section - Enhanced Glass Theme */}
-          <div className="group/dropzone mt-6">            <div
+          </div>          {/* Upload Section - Enhanced Glass Theme */}
+          <div className="group/dropzone mt-5 flex-1 flex flex-col justify-center"><div
               className={`relative rounded-xl border-2 border-dashed bg-white/40 backdrop-blur-md p-8 transition-all duration-300 ${
                 isDragOver 
                   ? `${currentTheme.dragOverBorder} bg-gradient-to-br ${currentTheme.dragOverBg} shadow-lg ${currentTheme.dragOverShadow}` 
@@ -165,11 +163,9 @@ const UploadCard: React.FC<UploadCardProps> = ({
               />
 
               <div className="space-y-6 text-center">
-                {!isLoading && (
-                  <div className="relative w-full group" onClick={handleClick}>
-                    <div className={`relative z-40 cursor-pointer group-hover:translate-x-8 ${currentTheme.uploadButtonHover} group-hover:-translate-y-8 transition-all duration-500 bg-gradient-to-br ${currentTheme.uploadButtonBg} backdrop-blur-lg border-2 border-white/60 flex items-center justify-center h-32 w-32 mx-auto rounded-xl shadow-lg`}>
-                      <svg
-                        className={`h-8 w-8 ${currentTheme.iconColor} drop-shadow-sm`}
+                {!isLoading && (                  <div className="relative w-full group" onClick={handleClick}>
+                    <div className={`relative z-40 cursor-pointer group-hover:translate-x-6 ${currentTheme.uploadButtonHover} group-hover:-translate-y-6 transition-all duration-500 bg-gradient-to-br ${currentTheme.uploadButtonBg} backdrop-blur-lg border-2 border-white/60 flex items-center justify-center h-24 w-24 mx-auto rounded-xl shadow-lg`}>                      <svg
+                        className={`h-6 w-6 ${currentTheme.iconColor} drop-shadow-sm`}
                         strokeLinejoin="round"
                         strokeLinecap="round"
                         strokeWidth="2"
@@ -185,10 +181,10 @@ const UploadCard: React.FC<UploadCardProps> = ({
                         <path d="M12 4l0 12"></path>
                       </svg>
                     </div>
-                    <div className={`absolute border-2 opacity-0 group-hover:opacity-90 transition-all duration-300 border-dashed border-${currentTheme.primary}-500 inset-0 z-30 bg-gradient-to-br from-${currentTheme.primary}-400/10 to-${currentTheme.secondary}-400/10 backdrop-blur-sm flex items-center justify-center h-32 w-32 mx-auto rounded-xl shadow-inner`}></div>
+                    <div className={`absolute border-2 opacity-0 group-hover:opacity-90 transition-all duration-300 border-dashed border-${currentTheme.primary}-500 inset-0 z-30 bg-gradient-to-br from-${currentTheme.primary}-400/10 to-${currentTheme.secondary}-400/10 backdrop-blur-sm flex items-center justify-center h-24 w-24 mx-auto rounded-xl shadow-inner`}></div>
                   </div>
-                )}                <div className="space-y-2">
-                  <p className="text-base font-semibold text-gray-900">
+                )}                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-gray-900">
                     {isLoading ? "Processing files..." : "Drop your files here or click above"}
                   </p>
                   <p className={`text-sm ${currentTheme.infoTextColor} font-medium`} id={`${uploadId}-desc`}>

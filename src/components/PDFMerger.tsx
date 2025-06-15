@@ -613,23 +613,21 @@ const PDFMerger: React.FC = () => {
                   ))}
                 </div>
               )}
-            </div>
-          ) : (            <div className="flex items-center justify-center h-full text-center py-16">
-              <div className="max-w-lg mx-auto">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
-                  <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            </div>          ) : (            <div className="flex items-center justify-center h-[450px] text-center py-8">
+              <div className="max-w-lg mx-auto h-full flex flex-col justify-center">
+                <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900 mb-4">
+                </div>                <h4 className="text-xl font-bold text-gray-900 mb-3">
                   Ready to merge your PDFs
                 </h4>
-                <p className="text-gray-600 mb-8">
+                <p className="text-gray-600 mb-6 text-base">
                   Upload multiple PDF files using the upload area to combine them into a single document.
                 </p>
                 
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 text-left border border-blue-200">
-                  <h5 className="font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 text-left border border-blue-200">
+                  <h5 className="font-bold text-gray-800 mb-3 flex items-center text-sm">
                     <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center mr-3">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -637,7 +635,7 @@ const PDFMerger: React.FC = () => {
                     </span>
                     How to merge PDFs:
                   </h5>
-                  <div className="space-y-3 text-sm text-gray-700">
+                  <div className="space-y-2 text-xs text-gray-700">
                     <div className="flex items-start">
                       <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">1</span>
                       <span>Upload multiple PDF files by clicking "Choose Files" or dragging them into the upload area</span>

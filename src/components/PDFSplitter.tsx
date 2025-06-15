@@ -949,25 +949,23 @@ const PDFSplitter: React.FC = () => {
                   Please wait while we prepare the page preview
                 </p>
               </div>
-            </div>
-          ) : (            <div className="flex items-center justify-center h-full text-center py-20">
-              <div className="max-w-lg mx-auto">
-                <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center">
-                  <svg className="w-16 h-16 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            </div>          ) : (            <div className="flex items-center justify-center h-[450px] text-center py-8">
+              <div className="max-w-lg mx-auto h-full flex flex-col justify-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center">
+                  <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                  </svg>
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900 mb-4">
+                  </svg>                </div>
+                <h4 className="text-xl font-bold text-gray-900 mb-3">
                   {!pdfFile ? 'Ready to split your PDF' : 'Upload a PDF file'}
                 </h4>
-                <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+                <p className="text-gray-600 mb-6 text-base leading-relaxed">
                   {!pdfFile 
                     ? 'Upload a PDF file using the upload area to view its pages and extract specific sections.'
                     : 'Your file is being processed. Pages will appear here once ready.'
                   }
                 </p>
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-8 text-left border border-green-200">
-                  <h5 className="font-bold text-gray-800 mb-4 flex items-center text-lg">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 text-left border border-green-200">
+                  <h5 className="font-bold text-gray-800 mb-3 flex items-center text-base">
                     <span className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center mr-3">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -975,7 +973,7 @@ const PDFSplitter: React.FC = () => {
                     </span>
                     How to split PDFs:
                   </h5>
-                  <div className="space-y-3 text-sm text-gray-700">
+                  <div className="space-y-2 text-xs text-gray-700">
                     <div className="flex items-start">
                       <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">1</span>
                       <span>Upload a PDF file by clicking "Choose File" or dragging it into the upload area</span>

@@ -797,22 +797,21 @@ const PDFRemover: React.FC = () => {
                 <p className="text-gray-600">Loading pages...</p>
               </div>
             </div>          ) : (
-            <div className="flex items-center justify-center h-full text-center py-16">
-              <div className="max-w-lg mx-auto">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center">
-                  <svg className="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center justify-center h-[450px] text-center py-8">
+              <div className="max-w-lg mx-auto h-full flex flex-col justify-center">
+                <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900 mb-4">
+                </div>                <h4 className="text-xl font-bold text-gray-900 mb-3">
                   Ready to remove PDF pages
                 </h4>
-                <p className="text-gray-600 mb-8">
+                <p className="text-gray-600 mb-6 text-base">
                   Upload a PDF file using the upload area to view its pages and remove unwanted pages.
                 </p>
                 
-                <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-6 text-left border border-red-200">
-                  <h5 className="font-bold text-gray-800 mb-4 flex items-center">
+                <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-5 text-left border border-red-200">
+                  <h5 className="font-bold text-gray-800 mb-3 flex items-center text-sm">
                     <span className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center mr-3">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -820,7 +819,7 @@ const PDFRemover: React.FC = () => {
                     </span>
                     How to remove pages:
                   </h5>
-                  <div className="space-y-3 text-sm text-gray-700">
+                  <div className="space-y-2 text-xs text-gray-700">
                     <div className="flex items-start">
                       <span className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3 mt-0.5 flex-shrink-0">1</span>
                       <span>Upload a PDF file by clicking "Choose File" or dragging it into the upload area</span>
