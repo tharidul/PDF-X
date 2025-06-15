@@ -140,11 +140,10 @@ const PDFSplitter: React.FC = () => {
       if (!context) {
         throw new Error('Could not get canvas context');
       }
-      
-      // Use smaller thumbnails under memory pressure to reduce memory usage
+        // Use larger thumbnails for better visual appeal, smaller under memory pressure
       const isUnderPressure = isMemoryPressure();
-      const targetWidth = isUnderPressure ? 150 : 200;
-      const targetHeight = isUnderPressure ? 210 : 280;
+      const targetWidth = isUnderPressure ? 180 : 240;
+      const targetHeight = isUnderPressure ? 250 : 340;
       const scale = Math.min(targetWidth / viewport.width, targetHeight / viewport.height);
       const scaledViewport = page.getViewport({ scale });
       
@@ -185,29 +184,27 @@ const PDFSplitter: React.FC = () => {
       console.error(`Error generating page thumbnail for page ${pageNumber}:`, thumbnailError);
       
       // Only return placeholder if PDF rendering completely fails
-      return new Promise((resolve) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 200;
-        canvas.height = 280;
+      return new Promise((resolve) => {        const canvas = document.createElement('canvas');
+        canvas.width = 240;
+        canvas.height = 340;
         const ctx = canvas.getContext('2d');
         
-        if (ctx) {
-          // Draw page background
+        if (ctx) {          // Draw page background
           ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, 200, 280);
+          ctx.fillRect(0, 0, 240, 340);
           
           // Draw border
           ctx.strokeStyle = '#e5e7eb';
           ctx.lineWidth = 2;
-          ctx.strokeRect(1, 1, 198, 278);
+          ctx.strokeRect(1, 1, 238, 338);
           
           // Draw page number
           ctx.fillStyle = '#374151';
-          ctx.font = 'bold 16px Arial';
+          ctx.font = 'bold 18px Arial';
           ctx.textAlign = 'center';
-          ctx.fillText(`Page ${pageNumber}`, 100, 120);
-          ctx.font = '12px Arial';
-          ctx.fillText('Preview unavailable', 100, 150);
+          ctx.fillText(`Page ${pageNumber}`, 120, 160);
+          ctx.font = '14px Arial';
+          ctx.fillText('Preview unavailable', 120, 190);
         }
         
         resolve(canvas.toDataURL());
@@ -845,7 +842,7 @@ const PDFSplitter: React.FC = () => {
                   </button>
                 )}
               </div>              {/* Pages Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-8">
                 {pages.map((page) => (
                   <div 
                     key={page.pageNumber === -1 ? 'summary' : page.pageNumber}

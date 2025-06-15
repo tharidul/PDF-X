@@ -135,11 +135,10 @@ const PDFRemover: React.FC = () => {
       if (!context) {
         throw new Error('Could not get canvas context');
       }
-      
-      // Use smaller thumbnails under memory pressure to reduce memory usage
+        // Use larger thumbnails for better visual appeal, smaller under memory pressure
       const isUnderPressure = isMemoryPressure();
-      const targetWidth = isUnderPressure ? 150 : 200;
-      const targetHeight = isUnderPressure ? 210 : 280;
+      const targetWidth = isUnderPressure ? 180 : 240;
+      const targetHeight = isUnderPressure ? 250 : 340;
       const scale = Math.min(targetWidth / viewport.width, targetHeight / viewport.height);
       const scaledViewport = page.getViewport({ scale });
       
@@ -177,26 +176,24 @@ const PDFRemover: React.FC = () => {
       
       console.error(`Error generating page thumbnail for page ${pageNumber}:`, thumbnailError);
       
-      return new Promise((resolve) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 200;
-        canvas.height = 280;
+      return new Promise((resolve) => {        const canvas = document.createElement('canvas');
+        canvas.width = 240;
+        canvas.height = 340;
         const ctx = canvas.getContext('2d');
         
-        if (ctx) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, 200, 280);
+        if (ctx) {          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, 240, 340);
           
           ctx.strokeStyle = '#e5e7eb';
           ctx.lineWidth = 2;
-          ctx.strokeRect(1, 1, 198, 278);
+          ctx.strokeRect(1, 1, 238, 338);
           
           ctx.fillStyle = '#374151';
-          ctx.font = 'bold 16px Arial';
+          ctx.font = 'bold 18px Arial';
           ctx.textAlign = 'center';
-          ctx.fillText(`Page ${pageNumber}`, 100, 120);
-          ctx.font = '12px Arial';
-          ctx.fillText('Preview unavailable', 100, 150);
+          ctx.fillText(`Page ${pageNumber}`, 120, 160);
+          ctx.font = '14px Arial';
+          ctx.fillText('Preview unavailable', 120, 190);
         }
         
         resolve(canvas.toDataURL());
@@ -699,86 +696,96 @@ const PDFRemover: React.FC = () => {
                     Clear Selection
                   </button>
                 )}
-              </div>
-
-              {/* Pages Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6">
+              </div>              {/* Pages Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-8">
                 {pages.map((page) => (
-                  <div key={page.pageNumber} className="relative group">
-                    {page.pageNumber === -1 ? (
-                      // Summary card for remaining pages
-                      <div className="bg-gray-100 border-2 border-gray-300 rounded-xl p-4 text-center">
-                        <div className="aspect-[3/4] flex items-center justify-center bg-gray-200 rounded-lg mb-3">
-                          <div className="text-center">
-                            <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <div className="text-sm font-medium text-gray-600">
-                              Pages 101-{pdfFile?.pageCount}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {(pdfFile?.pageCount || 0) - 100} more pages
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-xs text-gray-500 text-center">
-                          Use page range input to select
-                        </div>
-                      </div>
-                    ) : (
-                      // Regular page thumbnail
-                      <div 
-                        onClick={() => handlePageClick(page.pageNumber)}
-                        className={`relative bg-white border-2 rounded-xl p-3 transition-all duration-200 cursor-pointer hover:shadow-lg ${
-                          selectedPages.includes(page.pageNumber) 
-                            ? 'border-red-500 bg-red-50 ring-2 ring-red-200' 
-                            : 'border-gray-200 hover:border-red-300'
-                        }`}
-                      >
-                        {/* Selection overlay */}
-                        {selectedPages.includes(page.pageNumber) && (
-                          <div className="absolute inset-0 bg-red-500/20 rounded-xl flex items-center justify-center z-10">
-                            <div className="bg-red-500 text-white rounded-full p-2">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Page number badge */}
-                        <div className="absolute -top-2 -left-2 w-8 h-8 bg-gray-700 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-20">
-                          {page.pageNumber}
-                        </div>
-                        
-                        {/* Thumbnail */}
-                        <div className="aspect-[3/4] mb-3 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                          {page.thumbnail ? (
-                            <img 
-                              src={page.thumbnail} 
-                              alt={`Page ${page.pageNumber}`}
-                              className="w-full h-full object-contain"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-full">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400"></div>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Page info */}
-                        <div className="text-center">
-                          <div className="text-sm font-medium text-gray-800 truncate">
-                            Page {page.pageNumber}
-                          </div>
+                  <div 
+                    key={page.pageNumber === -1 ? 'summary' : page.pageNumber}
+                    onClick={() => page.pageNumber !== -1 && handlePageClick(page.pageNumber)}
+                    className={`group relative rounded-2xl transition-all duration-200 ${
+                      page.pageNumber === -1 
+                        ? 'cursor-default'
+                        : `cursor-pointer hover:shadow-xl ${
+                            selectedPages.includes(page.pageNumber)
+                            ? 'ring-4 ring-red-400 ring-opacity-75 shadow-xl'
+                            : 'hover:shadow-lg'
+                          }`
+                    }`}
+                  >
+                    {/* Selection Checkbox */}
+                    {page.pageNumber !== -1 && (
+                      <div className="absolute -top-2 -right-2 z-20">
+                        <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shadow-lg transition-all ${
+                          selectedPages.includes(page.pageNumber)
+                            ? 'bg-red-500 border-red-500 text-white'
+                            : 'bg-white border-gray-300 hover:border-red-400'
+                        }`}>
                           {selectedPages.includes(page.pageNumber) && (
-                            <div className="text-xs text-red-600 font-medium mt-1">
-                              Selected for removal
-                            </div>
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
                           )}
                         </div>
                       </div>
                     )}
+
+                    {/* Page content */}
+                    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                      {page.pageNumber === -1 ? (
+                        // Summary card for remaining pages
+                        <div className="aspect-[3/4] flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100">
+                          <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <div className="text-center">
+                            <div className="text-lg font-semibold text-gray-700 mb-1">
+                              +{(pdfFile?.pageCount || 0) - 100} more
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Pages 101-{pdfFile?.pageCount || 0}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-2">
+                              Use page numbers to select
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="aspect-[3/4] relative">
+                          {page.thumbnail ? (
+                            page.thumbnail === 'SUMMARY_CARD' ? null : (
+                              <img 
+                                src={page.thumbnail} 
+                                alt={`Page ${page.pageNumber}`}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  console.error(`Error loading thumbnail for page ${page.pageNumber}`);
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                }}
+                              />
+                            )
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+                            </div>
+                          )}
+
+                          {/* Page number overlay */}
+                          <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
+                            {page.pageNumber}
+                          </div>
+
+                          {/* Remove overlay when selected */}
+                          {selectedPages.includes(page.pageNumber) && (
+                            <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
+                              <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                                Will Remove
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
