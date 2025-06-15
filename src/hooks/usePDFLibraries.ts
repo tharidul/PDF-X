@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import type { PDFDocument } from 'pdf-lib';
+import type * as pdfjsLib from 'pdfjs-dist';
 
 interface PDFLibraries {
-  PDFDocument: any;
-  pdfjsLib: any;
+  PDFDocument: typeof PDFDocument | null;
+  pdfjsLib: typeof pdfjsLib | null;
   isLoaded: boolean;
   error: string | null;
 }
@@ -32,8 +34,8 @@ export const usePDFLibraries = (): PDFLibraries => {
           pdfjsLib,
           isLoaded: true,
           error: null
-        });
-      } catch (error) {
+        });      } catch (loadError) {
+        console.error('Failed to load PDF libraries:', loadError);
         setLibraries(prev => ({
           ...prev,
           error: 'Failed to load PDF libraries',

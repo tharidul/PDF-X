@@ -3,6 +3,7 @@ import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
 import UploadCard from './UploadCard';
+import { isMemoryPressure, triggerGarbageCollection, getMemoryUsage, formatMemorySize } from '../utils/memoryManagement';
 
 // Set up PDF.js worker with local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -82,12 +83,25 @@ const PDFRemover: React.FC = () => {
     } catch {
       return 0;
     }
-  };
-  const generatePageThumbnail = async (file: File, pageNumber: number, signal?: AbortSignal): Promise<string> => {
+  };  const generatePageThumbnail = async (file: File, pageNumber: number, signal?: AbortSignal): Promise<string> => {
     try {
       // Check if operation was cancelled
       if (signal?.aborted) {
         throw new Error('Operation cancelled');
+      }
+
+      // Check memory pressure before starting heavy operations
+      const memoryUsage = getMemoryUsage();
+      if (memoryUsage.used && memoryUsage.limit && (memoryUsage.used / memoryUsage.limit) > 0.85) {
+        console.warn(`Memory pressure detected (${formatMemorySize(memoryUsage.used)}/${formatMemorySize(memoryUsage.limit)}). Delaying thumbnail generation.`);
+        // Force garbage collection and wait a bit
+        triggerGarbageCollection();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // If still under pressure, use a simplified placeholder
+        if (isMemoryPressure()) {
+          throw new Error('Memory pressure - using placeholder');
+        }
       }
 
       console.log(`Generating thumbnail for page ${pageNumber}`);
@@ -99,7 +113,12 @@ const PDFRemover: React.FC = () => {
 
       const loadingTask = pdfjsLib.getDocument({ 
         data: arrayBuffer,
-        verbosity: 0
+        verbosity: 0,
+        disableStream: true, // Force complete loading for better memory management
+        disableAutoFetch: true, // Prevent prefetching other pages
+        disableFontFace: true, // Reduce font loading overhead
+        cMapPacked: true, // Use packed CMaps for better performance
+        useSystemFonts: true // Use system fonts when available
       });
       const pdf = await loadingTask.promise;
       
@@ -117,8 +136,10 @@ const PDFRemover: React.FC = () => {
         throw new Error('Could not get canvas context');
       }
       
-      const targetWidth = 200;
-      const targetHeight = 280;
+      // Use smaller thumbnails under memory pressure to reduce memory usage
+      const isUnderPressure = isMemoryPressure();
+      const targetWidth = isUnderPressure ? 150 : 200;
+      const targetHeight = isUnderPressure ? 210 : 280;
       const scale = Math.min(targetWidth / viewport.width, targetHeight / viewport.height);
       const scaledViewport = page.getViewport({ scale });
       
@@ -130,6 +151,9 @@ const PDFRemover: React.FC = () => {
         const renderContext = {
         canvasContext: context,
         viewport: scaledViewport,
+        // Use lower quality under memory pressure
+        renderInteractiveForms: false,
+        intent: 'print' // Use print intent for better performance
       };
       
       const renderTask = page.render(renderContext);
@@ -140,15 +164,18 @@ const PDFRemover: React.FC = () => {
         throw new Error('Operation cancelled');
       }
       
-      console.log(`Successfully generated thumbnail for page ${pageNumber}`);
-      return canvas.toDataURL('image/png', 0.8);
-    } catch (error: any) {
+      // Clean up PDF document to free memory
+      pdf.destroy();
+        console.log(`Successfully generated thumbnail for page ${pageNumber}`);
+      // Use lower quality for thumbnails under memory pressure
+      const quality = isUnderPressure ? 0.6 : 0.8;
+      return canvas.toDataURL('image/jpeg', quality); // Use JPEG for better compression
+    } catch (thumbnailError: unknown) {
       // Don't log errors for cancelled operations
-      if (error.message === 'Operation cancelled') {
-        throw error;
-      }
+      if (thumbnailError instanceof Error && thumbnailError.message === 'Operation cancelled') {
+        throw thumbnailError;      }
       
-      console.error(`Error generating page thumbnail for page ${pageNumber}:`, error);
+      console.error(`Error generating page thumbnail for page ${pageNumber}:`, thumbnailError);
       
       return new Promise((resolve) => {
         const canvas = document.createElement('canvas');
@@ -175,9 +202,28 @@ const PDFRemover: React.FC = () => {
         resolve(canvas.toDataURL());
       });
     }
-  };
-  const generatePages = async (file: File, pageCount: number) => {
+  };  const generatePages = async (file: File, pageCount: number) => {
     console.log(`Starting to generate thumbnails for ${pageCount} pages`);
+    
+    // Check if file is too large and show warning
+    const fileSize = file.size;
+    const fileSizeMB = fileSize / (1024 * 1024);
+    const isLargeFile = fileSizeMB > 50; // 50MB threshold
+    const isVeryLargeFile = fileSizeMB > 100; // 100MB threshold
+    
+    if (isVeryLargeFile && pageCount > 50) {
+      const proceed = confirm(
+        `⚠️ Large File Warning\n\n` +
+        `File size: ${formatFileSize(fileSize)}\n` +
+        `Pages: ${pageCount}\n\n` +
+        `This may cause performance issues or freeze your browser. ` +
+        `Consider using a smaller file or fewer pages.\n\n` +
+        `Continue anyway?`
+      );
+      if (!proceed) {
+        return;
+      }
+    }
     
     // Create new abort controller for this operation
     abortControllerRef.current = new AbortController();
@@ -186,7 +232,8 @@ const PDFRemover: React.FC = () => {
     
     try {
       const pageList: PageInfo[] = [];
-      const maxThumbnails = 100;
+      // Reduce thumbnail count for large files to prevent memory issues
+      const maxThumbnails = isLargeFile ? Math.min(50, pageCount) : Math.min(100, pageCount);
       const thumbnailCount = Math.min(pageCount, maxThumbnails);
       
       for (let i = 1; i <= thumbnailCount; i++) {
@@ -205,12 +252,22 @@ const PDFRemover: React.FC = () => {
       
       setPages([...pageList]);
       
-      const batchSize = 3;
+      // Generate thumbnails with adaptive batch size based on file size and memory
+      const baseBatchSize = isLargeFile ? 2 : 3;
+      const batchSize = isMemoryPressure() ? 1 : baseBatchSize;
+      
       for (let i = 0; i < thumbnailCount; i += batchSize) {
         // Check if operation was cancelled before processing each batch
         if (signal.aborted) {
           console.log('Thumbnail generation cancelled');
           return;
+        }
+        
+        // Check memory pressure and delay if needed
+        if (isMemoryPressure()) {
+          console.warn('Memory pressure detected, cleaning up before next batch');
+          triggerGarbageCollection();
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
         
         const batch = [];
@@ -252,9 +309,8 @@ const PDFRemover: React.FC = () => {
                 )
               );
             }
-          });
-        } catch (error: any) {
-          if (error.message === 'Operation cancelled') {
+          });} catch (batchError: unknown) {
+          if (batchError instanceof Error && batchError.message === 'Operation cancelled') {
             console.log('Thumbnail generation cancelled during batch processing');
             return;
           }
@@ -263,11 +319,10 @@ const PDFRemover: React.FC = () => {
         
         await new Promise(resolve => setTimeout(resolve, 50));
       }
-      
-      console.log('Thumbnail generation completed successfully');
-    } catch (error: any) {
-      if (error.message !== 'Operation cancelled') {
-        console.error('Error during thumbnail generation:', error);
+        console.log('Thumbnail generation completed successfully');
+    } catch (processError: unknown) {
+      if (processError instanceof Error && processError.message !== 'Operation cancelled') {
+        console.error('Error during thumbnail generation:', processError);
       }
     } finally {
       isProcessingRef.current = false;
@@ -310,12 +365,12 @@ const PDFRemover: React.FC = () => {
       setPageRange('');
       setPages([]);
 
-      await generatePages(file, pageCount);
-      
+      await generatePages(file, pageCount);      
       toast.success(`PDF loaded successfully! ${pageCount} pages found.`, { id: loadingToast });
-    } catch (error: any) {
-      console.error('Error loading PDF:', error);
-      toast.error(error.message || 'Failed to load PDF file', { id: loadingToast });
+    } catch (loadError: unknown) {
+      console.error('Error loading PDF:', loadError);
+      const errorMessage = loadError instanceof Error ? loadError.message : 'Failed to load PDF file';
+      toast.error(errorMessage, { id: loadingToast });
     } finally {
       setIsLoading(false);
     }
@@ -450,12 +505,12 @@ const PDFRemover: React.FC = () => {
       toast.success(
         `Successfully removed ${pagesToRemoveArray.length} page${pagesToRemoveArray.length !== 1 ? 's' : ''} from PDF! ` +
         `${pagesToKeep.length} page${pagesToKeep.length !== 1 ? 's' : ''} remaining.`, 
-        { id: loadingToast }
-      );
+        { id: loadingToast }      );
       
-    } catch (error: any) {
-      console.error('Error removing pages from PDF:', error);
-      toast.error(error.message || 'Failed to remove pages from PDF', { id: loadingToast });
+    } catch (removeError: unknown) {
+      console.error('Error removing pages from PDF:', removeError);
+      const errorMessage = removeError instanceof Error ? removeError.message : 'Failed to remove pages from PDF';
+      toast.error(errorMessage, { id: loadingToast });
     } finally {
       setIsLoading(false);
     }
@@ -504,20 +559,25 @@ const PDFRemover: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Action buttons section */}
+                    {/* Action buttons section */}
                   <div className="flex space-x-3">
                     <label
                       htmlFor="pdf-upload"
-                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium cursor-pointer text-center"
+                      className="w-10 h-10 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 cursor-pointer flex items-center justify-center hover:scale-105 shadow-md"
+                      title="Change File"
                     >
-                      Change File
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
                     </label>
                     <button
                       onClick={removeFile}
-                      className="flex-1 px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                      className="w-10 h-10 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 hover:border-red-400 transition-all duration-200 flex items-center justify-center hover:scale-105 shadow-md"
+                      title="Remove File"
                     >
-                      Remove
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
                     </button>
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 import React, { useState, Suspense } from 'react';
 import Footer from './Footer';
+import MemoryWarning from './MemoryWarning';
 
 // Lazy load PDF components for better code splitting
 const PDFMerger = React.lazy(() => import('./PDFMerger'));
@@ -273,6 +274,11 @@ const PDFToolbox: React.FC = () => {
           </div>
         </div>        {/* Content - Full Width */}
         <div className="w-full flex-1">
+          {/* Memory Warning - Show at top of content area */}
+          <div className="p-4 pb-0">
+            <MemoryWarning showDetails={false} />
+          </div>
+          
           <Suspense fallback={<LoadingSpinner />}>
             {activeMode === 'merge' && <PDFMerger key="merger" />}
             {activeMode === 'split' && <PDFSplitter key="splitter" />}

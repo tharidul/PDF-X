@@ -3,9 +3,15 @@ import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
 import UploadCard from './UploadCard';
+import { isMemoryPressure, triggerGarbageCollection, getMemoryUsage, formatMemorySize } from '../utils/memoryManagement';
 
 // Set up PDF.js worker with local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
+// Type for window with garbage collection
+interface WindowWithGC extends Window {
+  gc?: () => void;
+}
 
 interface PDFFile {
   file: File;
@@ -89,6 +95,20 @@ const PDFSplitter: React.FC = () => {
         throw new Error('Operation cancelled');
       }
 
+      // Check memory pressure before starting heavy operations
+      const memoryUsage = getMemoryUsage();
+      if (memoryUsage.used && memoryUsage.limit && (memoryUsage.used / memoryUsage.limit) > 0.85) {
+        console.warn(`Memory pressure detected (${formatMemorySize(memoryUsage.used)}/${formatMemorySize(memoryUsage.limit)}). Delaying thumbnail generation.`);
+        // Force garbage collection and wait a bit
+        triggerGarbageCollection();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // If still under pressure, use a simplified placeholder
+        if (isMemoryPressure()) {
+          throw new Error('Memory pressure - using placeholder');
+        }
+      }
+
       console.log(`Generating thumbnail for page ${pageNumber}`);
       const arrayBuffer = await file.arrayBuffer();
       
@@ -98,7 +118,12 @@ const PDFSplitter: React.FC = () => {
 
       const loadingTask = pdfjsLib.getDocument({ 
         data: arrayBuffer,
-        verbosity: 0 // Reduce console noise
+        verbosity: 0, // Reduce console noise
+        disableStream: true, // Force complete loading for better memory management
+        disableAutoFetch: true, // Prevent prefetching other pages
+        disableFontFace: true, // Reduce font loading overhead
+        cMapPacked: true, // Use packed CMaps for better performance
+        useSystemFonts: true // Use system fonts when available
       });
       const pdf = await loadingTask.promise;
       
@@ -116,9 +141,10 @@ const PDFSplitter: React.FC = () => {
         throw new Error('Could not get canvas context');
       }
       
-      // Calculate scale to make thumbnails larger and clearer like ilovepdf
-      const targetWidth = 200;
-      const targetHeight = 280;
+      // Use smaller thumbnails under memory pressure to reduce memory usage
+      const isUnderPressure = isMemoryPressure();
+      const targetWidth = isUnderPressure ? 150 : 200;
+      const targetHeight = isUnderPressure ? 210 : 280;
       const scale = Math.min(targetWidth / viewport.width, targetHeight / viewport.height);
       const scaledViewport = page.getViewport({ scale });
       
@@ -132,6 +158,9 @@ const PDFSplitter: React.FC = () => {
       const renderContext = {
         canvasContext: context,
         viewport: scaledViewport,
+        // Use lower quality under memory pressure
+        renderInteractiveForms: false,
+        intent: 'print' // Use print intent for better performance
       };
         // Render the actual PDF page content
       const renderTask = page.render(renderContext);
@@ -142,14 +171,18 @@ const PDFSplitter: React.FC = () => {
         throw new Error('Operation cancelled');
       }
       
-      console.log(`Successfully generated thumbnail for page ${pageNumber}`);
-      return canvas.toDataURL('image/png', 0.8);
-    } catch (error: any) {
+      // Clean up PDF document to free memory
+      pdf.destroy();
+        console.log(`Successfully generated thumbnail for page ${pageNumber}`);
+      // Use lower quality for thumbnails under memory pressure
+      const quality = isUnderPressure ? 0.6 : 0.8;
+      return canvas.toDataURL('image/jpeg', quality); // Use JPEG for better compression
+    } catch (thumbnailError: unknown) {
       // Don't log errors for cancelled operations
-      if (error.message === 'Operation cancelled') {
-        throw error;
+      if (thumbnailError instanceof Error && thumbnailError.message === 'Operation cancelled') {
+        throw thumbnailError;
       }
-      console.error(`Error generating page thumbnail for page ${pageNumber}:`, error);
+      console.error(`Error generating page thumbnail for page ${pageNumber}:`, thumbnailError);
       
       // Only return placeholder if PDF rendering completely fails
       return new Promise((resolve) => {
@@ -183,6 +216,26 @@ const PDFSplitter: React.FC = () => {
   };  const generatePages = async (file: File, pageCount: number) => {
     console.log(`Starting to generate thumbnails for ${pageCount} pages`);
     
+    // Check if file is too large and show warning
+    const fileSize = file.size;
+    const fileSizeMB = fileSize / (1024 * 1024);
+    const isLargeFile = fileSizeMB > 50; // 50MB threshold
+    const isVeryLargeFile = fileSizeMB > 100; // 100MB threshold
+    
+    if (isVeryLargeFile && pageCount > 50) {
+      const proceed = confirm(
+        `⚠️ Large File Warning\n\n` +
+        `File size: ${formatFileSize(fileSize)}\n` +
+        `Pages: ${pageCount}\n\n` +
+        `This may cause performance issues or freeze your browser. ` +
+        `Consider using a smaller file or fewer pages.\n\n` +
+        `Continue anyway?`
+      );
+      if (!proceed) {
+        return;
+      }
+    }
+    
     // Create new abort controller for this operation
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
@@ -190,11 +243,11 @@ const PDFSplitter: React.FC = () => {
     
     try {
       const pageList: PageInfo[] = [];
-      // Only generate thumbnails for first 100 pages for performance
-      const maxThumbnails = 100;
+      // Reduce thumbnail count for large files to prevent memory issues
+      const maxThumbnails = isLargeFile ? Math.min(50, pageCount) : Math.min(100, pageCount);
       const thumbnailCount = Math.min(pageCount, maxThumbnails);
       console.log(`Generating thumbnails for first ${thumbnailCount} pages${pageCount > maxThumbnails ? ` (pages ${maxThumbnails + 1}-${pageCount} will be shown as one summary card)` : ''}`);
-        // Add pages 1-100 (or less if PDF has fewer pages)
+        // Add pages 1-50/100 (or less if PDF has fewer pages)
       for (let i = 1; i <= thumbnailCount; i++) {
         pageList.push({
           pageNumber: i,
@@ -202,7 +255,7 @@ const PDFSplitter: React.FC = () => {
         });
       }
       
-      // If there are more than 100 pages, add ONE summary card for the rest
+      // If there are more than maxThumbnails pages, add ONE summary card for the rest
       if (pageCount > maxThumbnails) {
         pageList.push({
           pageNumber: -1, // Special marker for summary card
@@ -213,13 +266,22 @@ const PDFSplitter: React.FC = () => {
       // Set initial state with pages
       setPages([...pageList]);
       
-      // Generate thumbnails only for first 100 pages
-      const batchSize = 3;
+      // Generate thumbnails with adaptive batch size based on file size and memory
+      const baseBatchSize = isLargeFile ? 2 : 3;
+      const batchSize = isMemoryPressure() ? 1 : baseBatchSize;
+      
       for (let i = 0; i < thumbnailCount; i += batchSize) {
         // Check if operation was cancelled before processing each batch
         if (signal.aborted) {
           console.log('Thumbnail generation cancelled');
           return;
+        }
+        
+        // Check memory pressure and delay if needed
+        if (isMemoryPressure()) {
+          console.warn('Memory pressure detected, cleaning up before next batch');
+          triggerGarbageCollection();
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
         
         const batch = [];
@@ -228,12 +290,11 @@ const PDFSplitter: React.FC = () => {
           batch.push(
             generatePageThumbnail(file, pageNumber, signal).then(thumbnail => ({
               pageNumber,
-              thumbnail
-            })).catch(error => {
-              if (error.message === 'Operation cancelled') {
-                throw error; // Re-throw cancellation errors
+              thumbnail            })).catch((thumbnailError: unknown) => {
+              if (thumbnailError instanceof Error && thumbnailError.message === 'Operation cancelled') {
+                throw thumbnailError; // Re-throw cancellation errors
               }
-              console.error(`Failed to generate thumbnail for page ${pageNumber}:`, error);
+              console.error(`Failed to generate thumbnail for page ${pageNumber}:`, thumbnailError);
               return {
                 pageNumber,
                 thumbnail: undefined
@@ -258,24 +319,24 @@ const PDFSplitter: React.FC = () => {
               pageList[index] = result;
             }
           });
-          
-          // Update pages incrementally so user sees progress
+            // Update pages incrementally so user sees progress
           setPages([...pageList]);
-        } catch (error: any) {
-          if (error.message === 'Operation cancelled') {
+        } catch (batchError: unknown) {
+          if (batchError instanceof Error && batchError.message === 'Operation cancelled') {
             console.log('Thumbnail generation cancelled during batch processing');
             return;
           }
           // Continue with next batch if individual thumbnails fail
         }
         
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Increase delay between batches for large files and under memory pressure
+        const delay = isLargeFile ? (isMemoryPressure() ? 200 : 100) : 50;
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-      
-      console.log(`Completed generating ${thumbnailCount} page thumbnails out of ${pageCount} total pages`);
-    } catch (error: any) {
-      if (error.message !== 'Operation cancelled') {
-        console.error('Error during thumbnail generation:', error);
+        console.log(`Completed generating ${thumbnailCount} page thumbnails out of ${pageCount} total pages`);
+    } catch (processError: unknown) {
+      if (processError instanceof Error && processError.message !== 'Operation cancelled') {
+        console.error('Error during thumbnail generation:', processError);
       }
     } finally {
       isProcessingRef.current = false;
@@ -460,8 +521,7 @@ const PDFSplitter: React.FC = () => {
           console.log(`Reading file attempt ${retryCount + 1}/${maxRetries}`);
           arrayBuffer = await pdfFile.file.arrayBuffer();
           console.log('File loaded into memory successfully');
-          break;
-        } catch (readError: any) {
+          break;        } catch (readError: unknown) {
           retryCount++;
           console.warn(`File read attempt ${retryCount} failed:`, readError);
             if (retryCount >= maxRetries) {
@@ -504,19 +564,21 @@ const PDFSplitter: React.FC = () => {
           
           try {
             const copiedPages = await newPdf.copyPages(originalPdf, batchIndices);
-            copiedPages.forEach((page) => newPdf.addPage(page));
-              // Force garbage collection hint and longer delay for large files
-            if (isLargeFile && (window as any).gc) {
-              (window as any).gc();
+            copiedPages.forEach((page) => newPdf.addPage(page));              // Force garbage collection hint and longer delay for large files
+            if (isLargeFile) {
+              const windowWithGC = window as WindowWithGC;
+              if (windowWithGC.gc) {
+                windowWithGC.gc();
+              }
             }
             
             // Longer delay between batches for large files to prevent memory pressure
             if (i + batchSize < pageIndices.length) {
               await new Promise(resolve => setTimeout(resolve, isLargeFile ? 100 : 10));
-            }
-          } catch (batchError: any) {
+            }          } catch (batchError: unknown) {
             console.error(`Error in batch ${batchNum}:`, batchError);
-            throw new Error(`Failed to process pages ${batchIndices[0] + 1}-${batchIndices[batchIndices.length - 1] + 1}. ${batchError.message}`);
+            const errorMessage = batchError instanceof Error ? batchError.message : 'Unknown error';
+            throw new Error(`Failed to process pages ${batchIndices[0] + 1}-${batchIndices[batchIndices.length - 1] + 1}. ${errorMessage}`);
           }
         }      } else {
         // For smaller extractions, process all at once
@@ -553,29 +615,28 @@ const PDFSplitter: React.FC = () => {
       arrayBuffer = null;
       
       console.log('PDF split completed successfully');
-      
-      // Success toast
+        // Success toast
       toast.success(`Successfully extracted ${pagesToExtract.length} pages! File downloaded.`, { id: loadingToast });
       
-    } catch (err: any) {
-      console.error('Error splitting PDF:', err);
-      
-      // Provide more specific error messages
+    } catch (splitError: unknown) {
+      console.error('Error splitting PDF:', splitError);
+        // Provide more specific error messages
       let errorMessage = 'Failed to split PDF. ';
+      const errorMsg = splitError instanceof Error ? splitError.message : '';
       
-      if (err.message?.includes('NotReadableError') || err.message?.includes('not be read') || err.message?.includes('permission')) {
+      if (errorMsg.includes('NotReadableError') || errorMsg.includes('not be read') || errorMsg.includes('permission')) {
         errorMessage += 'The file could not be read. This may happen with very large files. Try refreshing the page and uploading the file again, or try extracting fewer pages.';
-      } else if (err.message?.includes('Invalid PDF')) {
+      } else if (errorMsg.includes('Invalid PDF')) {
         errorMessage += 'The file appears to be corrupted or not a valid PDF.';
-      } else if (err.message?.includes('memory') || err.message?.includes('Memory')) {
+      } else if (errorMsg.includes('memory') || errorMsg.includes('Memory')) {
         errorMessage += 'Not enough memory to process this large file. Try selecting fewer pages (less than 200) or restart your browser.';
-      } else if (err.message?.includes('timeout') || err.message?.includes('Timeout')) {
+      } else if (errorMsg.includes('timeout') || errorMsg.includes('Timeout')) {
         errorMessage += 'The operation timed out. This file might be too large or complex to process.';
       } else if (isLargeExtraction && isLargeFile) {
         errorMessage += 'The file is too large for this operation. Try extracting fewer pages (less than 200) or break the extraction into smaller chunks.';
-      } else if (err.message?.includes('Failed to read file')) {
+      } else if (errorMsg.includes('Failed to read file')) {
         errorMessage += 'Could not read the file after multiple attempts. Try refreshing the page and uploading the file again.';      } else {
-        errorMessage += err.message || 'Please ensure the file is a valid PDF document and try again.';
+        errorMessage += errorMsg || 'Please ensure the file is a valid PDF document and try again.';
       }
       
       toast.error(errorMessage, { id: loadingToast });
@@ -629,20 +690,25 @@ const PDFSplitter: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Action buttons section */}
+                    {/* Action buttons section */}
                   <div className="flex space-x-3">
                     <label
                       htmlFor="pdf-upload"
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium cursor-pointer text-center"
+                      className="w-10 h-10 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 cursor-pointer flex items-center justify-center hover:scale-105 shadow-md"
+                      title="Change File"
                     >
-                      Change File
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
                     </label>
                     <button
                       onClick={removeFile}
-                      className="flex-1 px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                      className="w-10 h-10 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 hover:border-red-400 transition-all duration-200 flex items-center justify-center hover:scale-105 shadow-md"
+                      title="Remove File"
                     >
-                      Remove
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
                     </button>
                   </div>
                 </div>

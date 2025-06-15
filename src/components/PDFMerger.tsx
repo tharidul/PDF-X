@@ -3,6 +3,7 @@ import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
 import UploadCard from './UploadCard';
+import { isMemoryPressure, triggerGarbageCollection, getMemoryUsage, formatMemorySize } from '../utils/memoryManagement';
 
 // Set up PDF.js worker with local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -41,87 +42,113 @@ const PDFMerger: React.FC = () => {
     } catch {
       return 0;
     }
-  };
-  const generateThumbnail = async (file: File): Promise<string> => {
-    return new Promise(async (resolve) => {
-      try {
-        // Load PDF with PDF.js
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        
-        // Get the first page
-        const page = await pdf.getPage(1);
-        
-        // Set up canvas for rendering
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        
-        if (!context) {
-          resolve('');
-          return;
-        }
-        
-        // Calculate scale to fit thumbnail size
-        const viewport = page.getViewport({ scale: 1 });
-        const scale = Math.min(200 / viewport.width, 260 / viewport.height);
-        const scaledViewport = page.getViewport({ scale });
-        
-        canvas.width = scaledViewport.width;
-        canvas.height = scaledViewport.height;
-        
-        // Render page to canvas
-        const renderContext = {
-          canvasContext: context,
-          viewport: scaledViewport,
-        };
-        
-        await page.render(renderContext).promise;
-        
-        resolve(canvas.toDataURL());
-      } catch (error) {
-        console.error('Error generating thumbnail:', error);
-        // Fallback to simple PDF icon
-        const canvas = document.createElement('canvas');
-        canvas.width = 200;
-        canvas.height = 260;
-        const ctx = canvas.getContext('2d');
-        
-        if (ctx) {
-          // Draw PDF icon background
-          ctx.fillStyle = '#f3f4f6';
-          ctx.fillRect(0, 0, 200, 260);
-          
-          // Draw PDF icon
-          ctx.fillStyle = '#ef4444';
-          ctx.fillRect(40, 40, 120, 160);
-          
-          // Draw fold corner
-          ctx.fillStyle = '#dc2626';
-          ctx.beginPath();
-          ctx.moveTo(140, 40);
-          ctx.lineTo(160, 40);
-          ctx.lineTo(160, 60);
-          ctx.closePath();
-          ctx.fill();
-          
-          // Draw text
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 20px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText('PDF', 100, 130);
-          
-          // Draw filename
-          ctx.fillStyle = '#374151';
-          ctx.font = '12px Arial';
-          const fileName = file.name.length > 20 ? file.name.substring(0, 17) + '...' : file.name;
-          ctx.fillText(fileName, 100, 230);
-        }
-        
-        resolve(canvas.toDataURL());
+  };  const generateThumbnail = async (file: File): Promise<string> => {
+    try {
+      // Check memory pressure before starting heavy operations
+      const memoryUsage = getMemoryUsage();
+      if (memoryUsage.used && memoryUsage.limit && (memoryUsage.used / memoryUsage.limit) > 0.85) {
+        console.warn(`Memory pressure detected (${formatMemorySize(memoryUsage.used)}/${formatMemorySize(memoryUsage.limit)}). Using fallback thumbnail.`);
+        // Force garbage collection and use fallback
+        triggerGarbageCollection();
+        return createFallbackThumbnail(file);
       }
-    });
+
+      // Load PDF with PDF.js
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ 
+        data: arrayBuffer,
+        verbosity: 0,
+        disableStream: true, // Force complete loading for better memory management
+        disableAutoFetch: true, // Prevent prefetching other pages
+        disableFontFace: true, // Reduce font loading overhead
+        cMapPacked: true, // Use packed CMaps for better performance
+        useSystemFonts: true // Use system fonts when available
+      }).promise;
+      
+      // Get the first page
+      const page = await pdf.getPage(1);
+      
+      // Set up canvas for rendering
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      
+      if (!context) {
+        throw new Error('Could not get canvas context');
+      }
+      
+      // Calculate scale to fit thumbnail size with memory considerations
+      const viewport = page.getViewport({ scale: 1 });
+      const isUnderPressure = isMemoryPressure();
+      const maxWidth = isUnderPressure ? 150 : 200;
+      const maxHeight = isUnderPressure ? 195 : 260;
+      const scale = Math.min(maxWidth / viewport.width, maxHeight / viewport.height);
+      const scaledViewport = page.getViewport({ scale });
+      
+      canvas.width = scaledViewport.width;
+      canvas.height = scaledViewport.height;
+      
+      // Render page to canvas
+      const renderContext = {
+        canvasContext: context,
+        viewport: scaledViewport,
+        renderInteractiveForms: false,
+        intent: 'print' // Use print intent for better performance
+      };
+      
+      await page.render(renderContext).promise;
+      
+      // Clean up PDF document to free memory
+      pdf.destroy();
+      
+      // Use lower quality for thumbnails under memory pressure
+      const quality = isUnderPressure ? 0.6 : 0.8;
+      return canvas.toDataURL('image/jpeg', quality); // Use JPEG for better compression
+    } catch (thumbnailError) {
+      console.error('Error generating thumbnail:', thumbnailError);
+      return createFallbackThumbnail(file);
+    }
   };
-  const processFiles = async (files: FileList | File[]) => {
+
+  const createFallbackThumbnail = (file: File): string => {
+    // Fallback to simple PDF icon
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 260;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      // Draw PDF icon background
+      ctx.fillStyle = '#f3f4f6';
+      ctx.fillRect(0, 0, 200, 260);
+      
+      // Draw PDF icon
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(40, 40, 120, 160);
+      
+      // Draw fold corner
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.moveTo(140, 40);
+      ctx.lineTo(160, 40);
+      ctx.lineTo(160, 60);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Draw text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('PDF', 100, 130);
+      
+      // Draw filename
+      ctx.fillStyle = '#374151';
+      ctx.font = '12px Arial';
+      const fileName = file.name.length > 20 ? file.name.substring(0, 17) + '...' : file.name;
+      ctx.fillText(fileName, 100, 230);
+    }
+    
+    return canvas.toDataURL();
+  };  const processFiles = async (files: FileList | File[]) => {
     setIsLoading(true);
     const newPdfFiles: PDFFile[] = [];
     const fileArray = Array.from(files);
@@ -135,13 +162,33 @@ const PDFMerger: React.FC = () => {
       setIsLoading(false);
       return;
     }
+    
+    // Check total file count and warn for large batches
+    if (fileArray.length > 10) {
+      const proceed = confirm(
+        `⚠️ Processing ${fileArray.length} files\n\n` +
+        `Processing many files at once may cause performance issues. ` +
+        `Consider uploading fewer files at a time.\n\n` +
+        `Continue anyway?`
+      );
+      if (!proceed) {
+        setIsLoading(false);
+        return;
+      }
+    }
 
     let successCount = 0;
-    let errorCount = 0;
 
     for (const file of fileArray) {
       if (file.type === 'application/pdf') {
         try {
+          // Check memory pressure before processing each file
+          if (isMemoryPressure()) {
+            console.warn('Memory pressure detected, cleaning up before processing next file');
+            triggerGarbageCollection();
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
           const pageCount = await getPageCount(file);
           const thumbnail = await generateThumbnail(file);
           const pdfFile: PDFFile = {
@@ -154,13 +201,17 @@ const PDFMerger: React.FC = () => {
           };
           newPdfFiles.push(pdfFile);
           successCount++;
-        } catch (error) {
+          
+          // Add a small delay between files to prevent overwhelming the system
+          if (fileArray.length > 5) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+        } catch (processError) {
+          console.error('Error processing file:', processError);
           toast.error(`Failed to process "${file.name}". File may be corrupted.`);
-          errorCount++;
         }
       } else {
         toast.error(`"${file.name}" is not a PDF file. Only PDF files are allowed.`);
-        errorCount++;
       }
     }
 

@@ -1,11 +1,14 @@
 
 import PDFToolbox from './components/PDFToolbox'
+import ErrorBoundary from './components/ErrorBoundary'
 import { Toaster } from 'react-hot-toast'
 
 function App() {
   return (
     <div className="min-h-screen flex flex-col">
-      <PDFToolbox />
+      <ErrorBoundary>
+        <PDFToolbox />
+      </ErrorBoundary>
       <Toaster
         position="top-right"
         reverseOrder={false}

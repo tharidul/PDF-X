@@ -134,8 +134,7 @@ const UploadCard: React.FC<UploadCardProps> = ({
           </div>
 
           {/* Upload Section - Enhanced Glass Theme */}
-          <div className="group/dropzone mt-6">
-            <div
+          <div className="group/dropzone mt-6">            <div
               className={`relative rounded-xl border-2 border-dashed bg-white/40 backdrop-blur-md p-8 transition-all duration-300 ${
                 isDragOver 
                   ? `${currentTheme.dragOverBorder} bg-gradient-to-br ${currentTheme.dragOverBg} shadow-lg ${currentTheme.dragOverShadow}` 
@@ -144,8 +143,16 @@ const UploadCard: React.FC<UploadCardProps> = ({
               onDragOver={onDragOver}
               onDragLeave={onDragLeave}
               onDrop={onDrop}
-            >
-              <input
+              role="button"
+              tabIndex={isLoading ? -1 : 0}
+              aria-label={isLoading ? "Processing files..." : `Click to upload ${supportedFormats} files or drag and drop`}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && !isLoading) {
+                  e.preventDefault();
+                  handleClick();
+                }
+              }}
+            ><input
                 ref={fileInputRef}
                 id={uploadId}
                 type="file"
@@ -153,6 +160,8 @@ const UploadCard: React.FC<UploadCardProps> = ({
                 multiple={multiple}
                 accept={accept}
                 onChange={onFileChange}
+                aria-label={`Upload ${supportedFormats} files, maximum size ${maxFileSize}`}
+                aria-describedby={`${uploadId}-desc`}
               />
 
               <div className="space-y-6 text-center">
@@ -178,13 +187,11 @@ const UploadCard: React.FC<UploadCardProps> = ({
                     </div>
                     <div className={`absolute border-2 opacity-0 group-hover:opacity-90 transition-all duration-300 border-dashed border-${currentTheme.primary}-500 inset-0 z-30 bg-gradient-to-br from-${currentTheme.primary}-400/10 to-${currentTheme.secondary}-400/10 backdrop-blur-sm flex items-center justify-center h-32 w-32 mx-auto rounded-xl shadow-inner`}></div>
                   </div>
-                )}
-
-                <div className="space-y-2">
+                )}                <div className="space-y-2">
                   <p className="text-base font-semibold text-gray-900">
                     {isLoading ? "Processing files..." : "Drop your files here or click above"}
                   </p>
-                  <p className={`text-sm ${currentTheme.infoTextColor} font-medium`}>
+                  <p className={`text-sm ${currentTheme.infoTextColor} font-medium`} id={`${uploadId}-desc`}>
                     Support files: {supportedFormats}
                   </p>
                   <p className="text-xs text-gray-600 font-medium">Max file size: {maxFileSize}</p>
