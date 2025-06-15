@@ -481,57 +481,55 @@ const PDFRemover: React.FC = () => {
                 loadingText="Processing PDF..."
                 loadingSubtext="Please wait while we analyze your file"
                 supportedFormats="Single PDF file"
-                theme="red"
-              />
+                theme="red"              />
             ) : (
-              <label 
-                htmlFor="pdf-upload"
-                className="relative border-2 border-dashed rounded-3xl p-8 text-center transition-all duration-300 cursor-pointer block border-red-400 bg-gradient-to-br from-red-50 to-pink-50"
-              >
+              <div className="border-2 border-red-400 bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-center">
-                    <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-                      <svg className="h-12 w-12 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  {/* File info section */}
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                      <svg className="h-10 w-10 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                       </svg>
                     </div>
-                  </div>                  <div>
-                    <h3 className="text-xl font-bold text-gray-800 truncate" title={pdfFile.name}>
-                      {pdfFile.name}
-                    </h3>
-                    <div className="flex items-center justify-center space-x-3 mt-2">
-                      <span className="text-sm text-gray-500">{pdfFile.size}</span>
-                      <span className="text-sm text-red-600 font-medium">
-                        {pdfFile.pageCount || 0} pages
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-gray-800 truncate" title={pdfFile.name}>
+                        {pdfFile.name}
+                      </h3>
+                      <div className="flex items-center space-x-3 mt-1">
+                        <span className="text-sm text-gray-500">{pdfFile.size}</span>
+                        <span className="text-sm text-red-600 font-medium">
+                          {pdfFile.pageCount || 0} pages
+                        </span>
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* Action buttons section */}
                   <div className="flex space-x-3">
                     <label
-                      htmlFor="pdf-upload-change"
-                      className="bg-gradient-to-r from-red-600 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-red-700 hover:to-pink-700 transition-all duration-300 flex-1 transform hover:scale-105 cursor-pointer text-center"
+                      htmlFor="pdf-upload"
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium cursor-pointer text-center"
                     >
                       Change File
                     </label>
                     <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        removeFile();
-                      }}
-                      className="px-6 py-3 text-red-600 border border-red-300 rounded-xl hover:bg-red-50 transition-colors font-semibold"
+                      onClick={removeFile}
+                      className="flex-1 px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors font-medium"
                     >
                       Remove
                     </button>
                   </div>
-                </div>                <input
+                </div>
+                <input
                   ref={fileInputRef}
-                  id="pdf-upload-change"
+                  id="pdf-upload"
                   type="file"
                   accept=".pdf,application/pdf"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
-              </label>
+              </div>
             )}
 
             {/* Page Selection Controls */}

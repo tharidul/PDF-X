@@ -15,10 +15,10 @@ const LoadingSpinner = () => (
 
 const PDFToolbox: React.FC = () => {
   const [activeMode, setActiveMode] = useState<'merge' | 'split' | 'remove'>('merge');
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">      {/* Mobile-Optimized Header Navigation with Enhanced Glass Effect */}
-      <header className="bg-white/20 backdrop-blur-xl border-b border-white/30 sticky top-0 z-50 shadow-lg shadow-black/5">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex flex-col">
+      {/* Mobile-Optimized Header Navigation with Enhanced Glass Effect */}
+      <header className="bg-white/20 backdrop-blur-xl border-b border-white/30 sticky top-0 z-50 shadow-lg shadow-black/5 flex-shrink-0">
         <div className="w-full px-4 sm:px-6 py-3 sm:py-4">
           {/* Mobile Layout: Stacked */}
           <div className="flex flex-col space-y-3 sm:hidden">
@@ -272,7 +272,7 @@ const PDFToolbox: React.FC = () => {
             )}
           </div>
         </div>        {/* Content - Full Width */}
-        <div className="w-full">
+        <div className="w-full flex-1">
           <Suspense fallback={<LoadingSpinner />}>
             {activeMode === 'merge' && <PDFMerger key="merger" />}
             {activeMode === 'split' && <PDFSplitter key="splitter" />}

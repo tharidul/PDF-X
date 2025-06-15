@@ -4,7 +4,7 @@ import { Toaster } from 'react-hot-toast'
 
 function App() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <PDFToolbox />
       <Toaster
         position="top-right"
