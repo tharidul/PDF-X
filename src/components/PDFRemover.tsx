@@ -28,7 +28,11 @@ const PDFRemover: React.FC = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [pageRange, setPageRange] = useState('');
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
-  const [pages, setPages] = useState<PageInfo[]>([]);
+  const [pages, setPages] = useState<PageInfo[]>([]);  // Add preview mode toggle
+  const [useRealPreviews, setUseRealPreviews] = useState(false);
+  // Add thumbnail generation progress tracking
+  const [thumbnailProgress, setThumbnailProgress] = useState({ current: 0, total: 0 });
+  const [showReadyStatus, setShowReadyStatus] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Add cancellation control
@@ -83,7 +87,81 @@ const PDFRemover: React.FC = () => {
     } catch {
       return 0;
     }
-  };  const generatePageThumbnail = async (file: File, pageNumber: number, signal?: AbortSignal): Promise<string> => {
+  };
+
+  // Simple thumbnail generator for performance mode
+  const generateSimpleThumbnail = (pageNumber: number, fileName: string): string => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 240;
+    canvas.height = 340;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      // Draw clean background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 240, 340);
+      
+      // Draw border
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(1, 1, 238, 338);
+      
+      // Draw document icon background
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(20, 30, 200, 260);
+      
+      // Draw document fold
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath();
+      ctx.moveTo(180, 30);
+      ctx.lineTo(220, 70);
+      ctx.lineTo(220, 290);
+      ctx.lineTo(20, 290);
+      ctx.lineTo(20, 30);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Draw fold triangle
+      ctx.fillStyle = '#cbd5e1';
+      ctx.beginPath();
+      ctx.moveTo(180, 30);
+      ctx.lineTo(220, 70);
+      ctx.lineTo(180, 70);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Draw page lines
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 8; i++) {
+        const y = 80 + (i * 25);
+        ctx.beginPath();
+        ctx.moveTo(40, y);
+        ctx.lineTo(200, y);
+        ctx.stroke();
+      }
+      
+      // Draw page number with "DELETE" indicator for remover
+      ctx.fillStyle = '#dc2626';
+      ctx.font = 'bold 18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('DELETE', 120, 320);
+      
+      ctx.fillStyle = '#1f2937';
+      ctx.font = 'bold 24px Arial';
+      ctx.fillText(`${pageNumber}`, 120, 290);
+      
+      // Draw file name (truncated)
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '12px Arial';
+      const truncatedName = fileName.length > 25 ? fileName.substring(0, 22) + '...' : fileName;
+      ctx.fillText(truncatedName, 120, 50);
+    }
+    
+    return canvas.toDataURL('image/jpeg', 0.8);
+  };
+
+  const generatePageThumbnail = async (file: File, pageNumber: number, signal?: AbortSignal): Promise<string> => {
     try {
       // Check if operation was cancelled
       if (signal?.aborted) {
@@ -200,21 +278,21 @@ const PDFRemover: React.FC = () => {
       });
     }
   };  const generatePages = async (file: File, pageCount: number) => {
-    console.log(`Starting to generate thumbnails for ${pageCount} pages`);
+    console.log(`Starting to generate thumbnails for ${pageCount} pages (mode: ${useRealPreviews ? 'real previews' : 'simple thumbnails'})`);
     
-    // Check if file is too large and show warning
+    // Check if file is too large and show warning (only for real previews)
     const fileSize = file.size;
     const fileSizeMB = fileSize / (1024 * 1024);
     const isLargeFile = fileSizeMB > 50; // 50MB threshold
     const isVeryLargeFile = fileSizeMB > 100; // 100MB threshold
     
-    if (isVeryLargeFile && pageCount > 50) {
+    if (useRealPreviews && isVeryLargeFile && pageCount > 50) {
       const proceed = confirm(
         `⚠️ Large File Warning\n\n` +
         `File size: ${formatFileSize(fileSize)}\n` +
         `Pages: ${pageCount}\n\n` +
-        `This may cause performance issues or freeze your browser. ` +
-        `Consider using a smaller file or fewer pages.\n\n` +
+        `Real preview mode may cause performance issues or freeze your browser. ` +
+        `Consider switching to simple thumbnails or using a smaller file.\n\n` +
         `Continue anyway?`
       );
       if (!proceed) {
@@ -229,8 +307,8 @@ const PDFRemover: React.FC = () => {
     
     try {
       const pageList: PageInfo[] = [];
-      // Reduce thumbnail count for large files to prevent memory issues
-      const maxThumbnails = isLargeFile ? Math.min(50, pageCount) : Math.min(100, pageCount);
+      // Reduce thumbnail count for large files to prevent memory issues (only for real previews)
+      const maxThumbnails = useRealPreviews && isLargeFile ? Math.min(50, pageCount) : Math.min(100, pageCount);
       const thumbnailCount = Math.min(pageCount, maxThumbnails);
       
       for (let i = 1; i <= thumbnailCount; i++) {
@@ -246,10 +324,30 @@ const PDFRemover: React.FC = () => {
           thumbnail: 'SUMMARY_CARD'
         });
       }
+        setPages([...pageList]);
       
-      setPages([...pageList]);
+      // Initialize progress tracking
+      setThumbnailProgress({ current: 0, total: thumbnailCount });
+        // For simple thumbnails, generate them immediately without heavy processing
+      if (!useRealPreviews) {
+        console.log('Generating simple thumbnails...');
+        // No need to show progress for instant generation
+        setThumbnailProgress({ current: 0, total: 0 });
+        
+        for (let i = 0; i < thumbnailCount; i++) {
+          const pageNumber = i + 1;
+          const simpleThumbnail = generateSimpleThumbnail(pageNumber, file.name);
+          pageList[i] = {
+            pageNumber,
+            thumbnail: simpleThumbnail
+          };
+        }
+        setPages([...pageList]);
+        console.log(`Generated ${thumbnailCount} simple thumbnails instantly`);
+        return;
+      }
       
-      // Generate thumbnails with adaptive batch size based on file size and memory
+      // Generate real PDF previews with adaptive batch size based on file size and memory
       const baseBatchSize = isLargeFile ? 2 : 3;
       const batchSize = isMemoryPressure() ? 1 : baseBatchSize;
       
@@ -295,8 +393,7 @@ const PDFRemover: React.FC = () => {
             console.log('Thumbnail generation cancelled after batch completion');
             return;
           }
-          
-          batchResults.forEach(result => {
+            batchResults.forEach(result => {
             if (result && result.thumbnail) {
               setPages(prevPages => 
                 prevPages.map(page => 
@@ -306,7 +403,12 @@ const PDFRemover: React.FC = () => {
                 )
               );
             }
-          });} catch (batchError: unknown) {
+          });
+          
+          // Update progress tracking
+          const completedCount = Math.min(i + batchSize, thumbnailCount);
+          setThumbnailProgress({ current: completedCount, total: thumbnailCount });
+        } catch (batchError: unknown) {
           if (batchError instanceof Error && batchError.message === 'Operation cancelled') {
             console.log('Thumbnail generation cancelled during batch processing');
             return;
@@ -314,9 +416,16 @@ const PDFRemover: React.FC = () => {
           // Continue with next batch if individual thumbnails fail
         }
         
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
+        await new Promise(resolve => setTimeout(resolve, 50));      }
         console.log('Thumbnail generation completed successfully');
+        
+        // Show ready status for real previews and auto-hide after 3 seconds
+        if (useRealPreviews) {
+          setShowReadyStatus(true);
+          setTimeout(() => {
+            setShowReadyStatus(false);
+          }, 3000);
+        }
     } catch (processError: unknown) {
       if (processError instanceof Error && processError.message !== 'Operation cancelled') {
         console.error('Error during thumbnail generation:', processError);
@@ -423,15 +532,87 @@ const PDFRemover: React.FC = () => {
   };
 
   const handlePageClick = (pageNumber: number) => {
-    if (selectedPages.includes(pageNumber)) {
-      const newSelected = selectedPages.filter(p => p !== pageNumber);
-      setSelectedPages(newSelected);
-      setPageRange(newSelected.join(', '));
-    } else {
-      const newSelected = [...selectedPages, pageNumber].sort((a, b) => a - b);
-      setSelectedPages(newSelected);
-      setPageRange(newSelected.join(', '));
+    // Normal page selection (summary card is not clickable)
+    setSelectedPages(prev => {
+      const newSelected = prev.includes(pageNumber)
+        ? prev.filter(p => p !== pageNumber)
+        : [...prev, pageNumber].sort((a, b) => a - b);
+      
+      // Update page range text
+      updatePageRangeFromSelection(newSelected);
+      return newSelected;
+    });
+  };  // Handle preview mode toggle
+  const handlePreviewModeToggle = async () => {
+    // Cancel any ongoing thumbnail generation first
+    if (abortControllerRef.current && isProcessingRef.current) {
+      console.log('Canceling ongoing thumbnail generation due to mode toggle');
+      abortControllerRef.current.abort();
+      isProcessingRef.current = false;
+      
+      // Wait a bit for the cancellation to take effect
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
+    
+    const newMode = !useRealPreviews;
+    setUseRealPreviews(newMode);
+  };
+
+  // Effect to regenerate thumbnails when preview mode changes
+  useEffect(() => {
+    // Only regenerate if we have a PDF loaded and this isn't the initial render
+    if (pdfFile && pdfFile.pageCount && pages.length > 0) {
+      const regenerateThumbnails = async () => {
+        const loadingToast = toast.loading(
+          useRealPreviews ? 'Generating real previews...' : 'Switching to simple thumbnails...'
+        );
+        
+        try {
+          await generatePages(pdfFile.file, pdfFile.pageCount!);
+          toast.success(
+            useRealPreviews ? 'Real previews generated!' : 'Switched to simple thumbnails',
+            { id: loadingToast }
+          );
+        } catch (error) {
+          toast.error('Failed to regenerate thumbnails', { id: loadingToast });
+        }
+      };
+      
+      regenerateThumbnails();
+    }
+  }, [useRealPreviews]); // Only depend on useRealPreviews change
+
+  const updatePageRangeFromSelection = (pages: number[]) => {
+    if (pages.length === 0) {
+      setPageRange('');
+      return;
+    }
+
+    const ranges: string[] = [];
+    let start = pages[0];
+    let end = pages[0];
+
+    for (let i = 1; i < pages.length; i++) {
+      if (pages[i] === end + 1) {
+        end = pages[i];
+      } else {
+        if (start === end) {
+          ranges.push(start.toString());
+        } else {
+          ranges.push(`${start}-${end}`);
+        }
+        start = pages[i];
+        end = pages[i];
+      }
+    }
+
+    if (start === end) {
+      ranges.push(start.toString());
+    } else {
+      ranges.push(`${start}-${end}`);
+    }
+
+    setPageRange(ranges.join(', '));
   };
 
   const handlePageRangeChange = (value: string) => {
@@ -547,20 +728,18 @@ const PDFRemover: React.FC = () => {
                       <svg className="h-10 w-10 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                       </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
+                    </div>                    <div className="flex-1 min-w-0">
                       <h3 className="text-lg font-bold text-gray-800 truncate" title={pdfFile.name}>
                         {pdfFile.name}
-                      </h3>
-                      <div className="flex items-center space-x-3 mt-1">
+                      </h3>                      <div className="flex items-center space-x-3 mt-1">
                         <span className="text-sm text-gray-500">{pdfFile.size}</span>
                         <span className="text-sm text-red-600 font-medium">
                           {pdfFile.pageCount || 0} pages
                         </span>
                       </div>
-                    </div>
-                  </div>
-                    {/* Action buttons section */}
+                    </div>                  </div>
+                  
+                  {/* Action buttons section */}
                   <div className="flex space-x-3">
                     <label
                       htmlFor="pdf-upload"
@@ -677,17 +856,77 @@ const PDFRemover: React.FC = () => {
         {/* Right Side - Pages Grid */}
         <div className="flex-1 p-6 sm:p-8 bg-gray-50/30">
           {pdfFile && pages.length > 0 ? (
-            <div className="h-full">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                    Select Pages to Remove ({pdfFile?.pageCount || 0} total pages)
-                  </h3>
-                  {selectedPages.length > 0 && (
-                    <p className="text-red-600 font-medium">
-                      {selectedPages.length} page{selectedPages.length !== 1 ? 's' : ''} selected for removal
-                    </p>
-                  )}
+            <div className="h-full">              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-6">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                      Select Pages to Remove ({pdfFile?.pageCount || 0} total pages)
+                    </h3>
+                    {selectedPages.length > 0 && (
+                      <p className="text-red-600 font-medium">
+                        {selectedPages.length} page{selectedPages.length !== 1 ? 's' : ''} selected for removal
+                      </p>
+                    )}
+                  </div>                  {/* Preview Mode Toggle - Beautiful Switch Design */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 mt-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700">Preview Quality:</span>
+                        {/* Beautiful Toggle Switch - Simplified */}
+                      <label className="relative inline-flex items-center cursor-pointer group">
+                        <input 
+                          type="checkbox" 
+                          checked={useRealPreviews}
+                          onChange={handlePreviewModeToggle}
+                          disabled={isLoading}
+                          className="sr-only peer"
+                        />                        <div className={`
+                          peer ring-0 bg-gradient-to-bl from-neutral-800 via-neutral-700 to-neutral-600 
+                          rounded-full outline-none duration-300 after:duration-200 w-12 h-6 shadow-md 
+                          peer-focus:outline-none after:content-[''] after:rounded-full after:absolute 
+                          after:h-4 after:w-4 after:top-1 after:left-1 
+                          peer-checked:after:translate-x-6 peer-hover:after:scale-95 
+                          peer-checked:bg-gradient-to-r peer-checked:from-red-500 peer-checked:to-red-800
+                          after:bg-gradient-to-br after:from-gray-100 after:via-white after:to-gray-200
+                          ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+                        `}
+                        title={
+                          isLoading 
+                            ? 'Please wait for current operation to complete'
+                            : useRealPreviews 
+                              ? 'Switch to Fast Mode: Simple icons for quick loading'
+                              : 'Switch to Quality Mode: Real page previews with full detail'
+                        }
+                        />
+                      </label>
+                      
+                      {/* Current Mode Text */}
+                      <span className="text-xs font-medium text-gray-600 min-w-0">
+                        {useRealPreviews ? 'High Quality' : 'Fast Mode'}
+                      </span>
+                    </div>
+                    
+                    {/* Progress/Status Indicator */}
+                    <div className="flex items-center gap-3">
+                      {useRealPreviews && thumbnailProgress.total > 0 && thumbnailProgress.current < thumbnailProgress.total && (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-red-600 font-medium">
+                            {Math.round((thumbnailProgress.current / thumbnailProgress.total) * 100)}%
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Ready Status */}
+                      {useRealPreviews && showReadyStatus && (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-xs text-green-600 font-medium">
+                            ✓ Ready
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 {selectedPages.length > 0 && (
                   <button
